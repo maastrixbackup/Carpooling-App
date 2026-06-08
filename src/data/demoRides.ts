@@ -1,0 +1,46 @@
+export const demoRides = [
+  {
+    id: "1",
+    from: "Bhubaneswar",
+    to: "Cuttack",
+    date: "Today",
+    time: "09:30 AM",
+    price: 120,
+    seats: 3,
+    driver: "Rohit Sharma",
+    rating: 4.8,
+    car: "Hyundai i20",
+    pickup: "Jaydev Vihar",
+    drop: "Badambadi",
+    pickupCoordinate: {
+      latitude: 20.2961,
+      longitude: 85.8245,
+    },
+    dropCoordinate: {
+      latitude: 20.4625,
+      longitude: 85.883,
+    },
+  },
+  {
+    id: "2",
+    from: "Delhi",
+    to: "Gurgaon",
+    date: "Today",
+    time: "09:30 AM",
+    price: 120,
+    seats: 3,
+    driver: "Rohit Sharma",
+    rating: 4.8,
+    car: "Hyundai Creta",
+    pickup: "Jaydev Vihar",
+    drop: "Badambadi",
+    pickupCoordinate: {
+      latitude: 20.2961,
+      longitude: 85.8245,
+    },
+    dropCoordinate: {
+      latitude: 20.4625,
+      longitude: 85.883,
+    },
+  },
+];
