@@ -1,0 +1,32 @@
+import { apiClient } from "@/lib/apiClient";
+
+export async function createBookingApi(payload: any) {
+  return apiClient("/bookings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getMyBookingsApi() {
+  return apiClient("/bookings/my-bookings", {
+    method: "GET",
+  });
+}
+
+export async function getDriverBookingsApi() {
+  return apiClient("/bookings/driver-bookings", {
+    method: "GET",
+  });
+}
+
+export async function getBookingByIdApi(id: number | string) {
+  return apiClient(`/bookings/${id}`, {
+    method: "GET",
+  });
+}
+
+export async function cancelBookingApi(id: number | string) {
+  return apiClient(`/bookings/${id}/cancel`, {
+    method: "PATCH",
+  });
+}

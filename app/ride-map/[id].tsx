@@ -1,3 +1,4 @@
+import { shortAddress } from "@/hooks/address-trimmer";
 import { getRideByIdApi } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -33,10 +34,10 @@ const routeCache = new Map<string, RouteCacheValue>();
 function mapApiRide(ride: any) {
   return {
     id: String(ride.id),
-    from: ride.source_address,
-    to: ride.destination_address,
-    pickup: ride.source_address,
-    drop: ride.destination_address,
+    from: shortAddress(ride.source_address),
+    to: shortAddress(ride.destination_address),
+    pickup: shortAddress(ride.source_address).split(",")[0],
+    drop: shortAddress(ride.destination_address),
     price: Number(ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",

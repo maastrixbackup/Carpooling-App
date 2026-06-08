@@ -1,4 +1,5 @@
 import { RideCard } from "@/components/ride/RideCard";
+import { shortAddress } from "@/hooks/address-trimmer";
 import { getHomeBootstrap } from "@/services/home.service";
 import {
   getPlaceDetails,
@@ -106,8 +107,8 @@ function getNextDates(): DateOption[] {
         index === 0
           ? "Today"
           : index === 1
-          ? "Tomorrow"
-          : date.toLocaleDateString("en-IN", { weekday: "short" }),
+            ? "Tomorrow"
+            : date.toLocaleDateString("en-IN", { weekday: "short" }),
       dateText: date.toLocaleDateString("en-IN", {
         day: "2-digit",
         month: "short",
@@ -123,24 +124,35 @@ function getNextDates(): DateOption[] {
   });
 }
 
+
+
 function mapApiRideToCard(ride: any) {
   return {
     id: String(ride.id),
-    from: ride.source_address,
-    to: ride.destination_address,
+
+    from: shortAddress(ride.source_address),
+    to: shortAddress(ride.destination_address),
+
     date: ride.ride_date,
     time: ride.departure_time,
     price: Number(ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
+
     driver: ride.driver_name || "Driver",
     rating: Number(ride.vehicle_rating || 4.8),
-    car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
+
+    car:
+      `${ride.brand || ""} ${ride.model || ""}`.trim() ||
+      "Vehicle",
+
     pickup: ride.source_address,
     drop: ride.destination_address,
+
     pickupCoordinate: {
       latitude: Number(ride.source_lat),
       longitude: Number(ride.source_lng),
     },
+
     dropCoordinate: {
       latitude: Number(ride.destination_lat),
       longitude: Number(ride.destination_lng),

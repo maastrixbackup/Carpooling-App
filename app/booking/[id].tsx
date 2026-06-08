@@ -1,5 +1,10 @@
-import { demoRides } from "@/data/demoRides";
+import { useConfirm } from "@/components/common/ConfirmProvider";
+import {
+  cancelBookingApi,
+  getBookingByIdApi,
+} from "@/services/booking.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
   ArrowLeft,
@@ -8,112 +13,186 @@ import {
   CheckCircle2,
   IndianRupee,
   MapPin,
+  Navigation,
+  Phone,
   ShieldCheck,
-  Star,
   Ticket,
+  User,
   Users,
+  XCircle,
 } from "lucide-react-native";
-import { useState } from "react";
 import {
-  Alert,
+  ActivityIndicator,
+  Linking,
   Platform,
+  RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
-export default function BookingScreen() {
+type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+
+type BookingDetails = {
+  id: string;
+  code: string;
+  rideId: string;
+  from: string;
+  to: string;
+  fullFrom: string;
+  fullTo: string;
+  sourceLat: number;
+  sourceLng: number;
+  destinationLat: number;
+  destinationLng: number;
+  date: string;
+  time: string;
+  seats: number;
+  pricePerSeat: number;
+  totalPrice: number;
+  status: BookingStatus;
+  paymentStatus: string;
+  paymentType: string;
+  driverName: string;
+  driverPhone?: string | null;
+  car: string;
+  registrationNumber: string;
+  color: string;
+};
+
+export default function BookingDetailsScreen() {
   const { colors } = useAppTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const confirm = useConfirm();
+  const queryClient = useQueryClient();
 
-  const [isConfirmed, setIsConfirmed] = useState(false);
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
+    queryKey: ["booking-details", id],
+    queryFn: () => getBookingByIdApi(id!),
+    enabled: !!id,
+  });
 
-  const ride = demoRides.find((item) => item.id === id);
+  const booking = data?.data?.booking
+    ? mapBookingToDetails(data.data.booking)
+    : null;
 
-  if (!ride) {
+  const cancelMutation = useMutation({
+    mutationFn: cancelBookingApi,
+    onSuccess: async () => {
+      toast.success("Booking cancelled successfully.");
+      await queryClient.invalidateQueries({ queryKey: ["booking-details", id] });
+      await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      await queryClient.invalidateQueries({ queryKey: ["rides"] });
+      await queryClient.invalidateQueries({ queryKey: ["home-bootstrap"] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Unable to cancel booking.");
+    },
+  });
+
+  const handleCancelBooking = async () => {
+    if (!booking) return;
+
+    const ok = await confirm({
+      title: "Cancel booking?",
+      message:
+        "This booking will be cancelled and your reserved seats will be released.",
+      confirmText: "Cancel",
+      cancelText: "Keep Booking",
+      danger: true,
+    });
+
+    if (!ok) return;
+
+    cancelMutation.mutate(booking.id);
+  };
+
+  const handleCallDriver = () => {
+    if (!booking?.driverPhone) {
+      toast.error("Driver phone number is not available.");
+      return;
+    }
+
+    Linking.openURL(`tel:${booking.driverPhone}`);
+  };
+
+  const handleViewMap = () => {
+    if (!booking) return;
+
+    router.push({
+      pathname: "/ride-map/[id]" as any,
+      params: { id: booking.rideId },
+    });
+  };
+
+  if (isLoading) {
     return (
-      <View
-        style={{ flex: 1, backgroundColor: colors.bg }}
-        className="items-center justify-center px-5"
-      >
-        <View
-          style={{ backgroundColor: colors.card, borderColor: colors.border }}
-          className="w-full items-center rounded-[30px] border p-8"
-        >
-          <Ticket size={42} color={colors.muted} />
-
-          <Text
-            style={{ color: colors.text }}
-            className="mt-4 text-xl font-extrabold"
-          >
-            Booking not found
-          </Text>
-
-          <Text
-            style={{ color: colors.muted }}
-            className="mt-2 text-center text-sm"
-          >
-            This booking may not exist or has been removed.
-          </Text>
-
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.back()}
-            style={{ backgroundColor: colors.primary }}
-            className="mt-6 rounded-2xl px-6 py-3"
-          >
-            <Text className="font-extrabold text-white">Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <CenterState
+        icon={<Ticket size={42} color={colors.primary} />}
+        title="Loading booking..."
+        subtitle="Please wait while we fetch your trip details."
+        loading
+      />
     );
   }
 
-  const handleConfirmSeat = () => {
-    setIsConfirmed(true);
-
-    Alert.alert(
-      "Seat Confirmed",
-      `Your seat from ${ride.from} to ${ride.to} has been confirmed.`
+  if (isError || !booking) {
+    return (
+      <CenterState
+        icon={<Ticket size={42} color={colors.muted} />}
+        title="Booking not found"
+        subtitle="This booking may not exist or may have been removed."
+        actionText="Go Back"
+        onAction={() => router.back()}
+      />
     );
-  };
+  }
+
+  const statusTheme = getStatusTheme(booking.status, colors);
+  const canCancel = booking.status === "pending" || booking.status === "confirmed";
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isFetching} onRefresh={refetch} />
+          }
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: Platform.OS === "android" ? 16 : 12,
-            paddingBottom: 150,
+            paddingBottom: canCancel ? 190 : 135,
           }}
         >
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router.back()}
-              style={{ backgroundColor: colors.card, borderColor: colors.border }}
+              style={{
+                backgroundColor: colors.card, borderColor: colors.border, shadowColor: "#000",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.12,
+                shadowRadius: 18,
+                 elevation: 6,
+              }}
               className="h-11 w-11 items-center justify-center rounded-full border"
             >
               <ArrowLeft size={22} color={colors.text} />
             </TouchableOpacity>
 
             <View
-              style={{
-                backgroundColor: isConfirmed
-                  ? "rgba(34,197,94,0.14)"
-                  : colors.primarySoft,
-              }}
+              style={{ backgroundColor: statusTheme.bg }}
               className="rounded-full px-4 py-2"
             >
               <Text
-                style={{ color: isConfirmed ? colors.success : colors.primary }}
+                style={{ color: statusTheme.text }}
                 className="text-xs font-extrabold"
               >
-                {isConfirmed ? "Confirmed" : "Pending"}
+                {statusTheme.label}
               </Text>
             </View>
           </View>
@@ -127,96 +206,93 @@ export default function BookingScreen() {
 
             <View className="flex-row items-center gap-2">
               <CheckCircle2 size={18} color="#FFFFFF" />
-              <Text className="font-bold text-white">Booking Confirmation</Text>
+              <Text className="font-bold text-white">Booking Details</Text>
             </View>
 
-            <Text className="mt-4 text-3xl font-extrabold leading-9 text-white">
-              {isConfirmed ? "Seat confirmed" : "Confirm your seat"}
+            <Text className="mt-4 text-xl font-extrabold leading-9 text-white">
+              {booking.from}
             </Text>
 
-            <Text className="mt-2 leading-5 text-blue-100">
-              {ride.from} to {ride.to} • {ride.date}, {ride.time}
+            <Text className="my-2 text-2xl font-extrabold text-blue-100">↓</Text>
+
+            <Text className="text-xl font-extrabold leading-9 text-white">
+              {booking.to}
+            </Text>
+
+            <Text className="mt-4 text-sm font-bold text-blue-100">
+              {formatDisplayDate(booking.date)} • {formatDisplayTime(booking.time)}
+            </Text>
+
+            <Text className="mt-2 text-xs font-bold text-white/80">
+              Booking ID: {booking.code}
             </Text>
           </View>
 
           <View className="mt-5 flex-row gap-3">
             <MiniStat
               icon={<IndianRupee size={17} color={colors.primary} />}
-              label="Amount"
-              value={`₹${ride.price}`}
+              label="Total"
+              value={`₹${booking.totalPrice}`}
             />
 
             <MiniStat
               icon={<Users size={17} color={colors.success} />}
-              label="Seat"
-              value="1"
+              label="Seats"
+              value={`${booking.seats}`}
             />
           </View>
 
           <SectionCard title="Trip Details">
             <InfoRow
-              icon={<MapPin size={18} color={colors.primary} />}
-              label="Route"
-              value={`${ride.from} → ${ride.to}`}
-            />
-
-            <InfoRow
               icon={<Calendar size={18} color={colors.primary} />}
               label="Date & Time"
-              value={`${ride.date}, ${ride.time}`}
+              value={`${formatDisplayDate(booking.date)} • ${formatDisplayTime(
+                booking.time
+              )}`}
             />
 
             <InfoRow
               icon={<MapPin size={18} color={colors.primary} />}
               label="Pickup"
-              value={ride.pickup}
+              value={booking.fullFrom}
             />
 
             <InfoRow
               icon={<MapPin size={18} color={colors.success} />}
               label="Drop"
-              value={ride.drop}
+              value={booking.fullTo}
             />
 
-            <InfoRow
-              icon={<Car size={18} color={colors.primary} />}
-              label="Vehicle"
-              value={ride.car}
-            />
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleViewMap}
+              style={{ backgroundColor: colors.primarySoft }}
+              className="mt-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
+            >
+              <Navigation size={18} color={colors.primary} />
+              <Text style={{ color: colors.primary }} className="font-extrabold">
+                View Route Map
+              </Text>
+            </TouchableOpacity>
           </SectionCard>
 
-          <SectionCard title="Driver">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
+          <SectionCard title="Driver & Vehicle">
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="flex-row flex-1 items-center gap-3">
                 <View
                   style={{ backgroundColor: colors.primarySoft }}
                   className="h-14 w-14 items-center justify-center rounded-full"
                 >
-                  <Text
-                    style={{ color: colors.primary }}
-                    className="text-xl font-extrabold"
-                  >
-                    {ride.driver.charAt(0)}
-                  </Text>
+                  <User size={24} color={colors.primary} />
                 </View>
 
-                <View>
-                  <Text
-                    style={{ color: colors.text }}
-                    className="text-base font-extrabold"
-                  >
-                    {ride.driver}
+                <View className="flex-1">
+                  <Text style={{ color: colors.text }} className="text-base font-extrabold">
+                    {booking.driverName}
                   </Text>
-
-                  <View className="mt-1 flex-row items-center gap-1">
-                    <Star size={15} color="#F59E0B" fill="#F59E0B" />
-                    <Text
-                      style={{ color: colors.muted }}
-                      className="text-sm font-semibold"
-                    >
-                      {ride.rating} rating
-                    </Text>
-                  </View>
+                  <Text style={{ color: colors.muted }} className="mt-1 text-xs font-semibold">
+                    {booking.car} • {booking.color}
+                  </Text>
                 </View>
               </View>
 
@@ -224,33 +300,67 @@ export default function BookingScreen() {
                 style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
                 className="rounded-full px-3 py-1.5"
               >
-                <Text
-                  style={{ color: colors.success }}
-                  className="text-xs font-bold"
-                >
+                <Text style={{ color: colors.success }} className="text-xs font-bold">
                   Verified
                 </Text>
               </View>
             </View>
+
+            <InfoRow
+              icon={<Car size={18} color={colors.primary} />}
+              label="Registration"
+              value={booking.registrationNumber}
+            />
+
+            {booking.driverPhone && (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleCallDriver}
+                style={{ backgroundColor: colors.input }}
+                className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
+              >
+                <Phone size={18} color={colors.primary} />
+                <Text style={{ color: colors.text }} className="font-extrabold">
+                  Call Driver
+                </Text>
+              </TouchableOpacity>
+            )}
           </SectionCard>
 
-          <SectionCard title="Booking Summary">
-            <SummaryRow label="Seat price" value={`₹${ride.price}`} />
-            <SummaryRow label="Seats booked" value="1" />
-            <SummaryRow label="Platform fee" value="₹0" />
+          <SectionCard title="Payment Summary">
+            <SummaryRow
+              label="Seat price"
+              value={`₹${booking.pricePerSeat}`}
+            />
+            <SummaryRow
+              label="Seats booked"
+              value={`${booking.seats}`}
+            />
+            <SummaryRow
+              label="Payment type"
+              value={capitalize(booking.paymentType)}
+            />
+            <SummaryRow
+              label="Payment status"
+              value={capitalize(booking.paymentStatus)}
+            />
 
             <View
               style={{ borderTopColor: colors.border }}
               className="mt-2 border-t pt-4"
             >
-              <SummaryRow label="Total" value={`₹${ride.price}`} strong />
+              <SummaryRow
+                label="Total"
+                value={`₹${booking.totalPrice}`}
+                strong
+              />
             </View>
           </SectionCard>
 
           <SectionCard title="Safety">
             <SafetyRow text="Confirm driver and vehicle details before boarding." />
             <SafetyRow text="Share your trip status with someone you trust." />
-            <SafetyRow text="Keep booking details available during travel." />
+            <SafetyRow text="Keep this booking screen available during travel." />
           </SectionCard>
         </ScrollView>
 
@@ -270,43 +380,122 @@ export default function BookingScreen() {
                 style={{ color: colors.text }}
                 className="mt-1 text-2xl font-extrabold"
               >
-                ₹{ride.price}
+                ₹{booking.totalPrice}
               </Text>
             </View>
 
             <View
-              style={{
-                backgroundColor: isConfirmed
-                  ? "rgba(34,197,94,0.14)"
-                  : colors.primarySoft,
-              }}
+              style={{ backgroundColor: statusTheme.bg }}
               className="rounded-full px-4 py-2"
             >
               <Text
-                style={{ color: isConfirmed ? colors.success : colors.primary }}
+                style={{ color: statusTheme.text }}
                 className="text-xs font-bold"
               >
-                {isConfirmed ? "Booked" : "1 Seat"}
+                {statusTheme.label}
               </Text>
             </View>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={isConfirmed}
-            onPress={handleConfirmSeat}
-            style={{
-              backgroundColor: isConfirmed ? colors.success : colors.primary,
-              opacity: isConfirmed ? 0.9 : 1,
-            }}
-            className="rounded-2xl py-4"
-          >
-            <Text className="text-center text-base font-extrabold text-white">
-              {isConfirmed ? "Seat Confirmed" : "Confirm Seat"}
-            </Text>
-          </TouchableOpacity>
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleViewMap}
+              style={{ backgroundColor: colors.primarySoft }}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
+            >
+              <Navigation size={18} color={colors.primary} />
+              <Text style={{ color: colors.primary }} className="font-extrabold">
+                Map
+              </Text>
+            </TouchableOpacity>
+
+            {canCancel ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleCancelBooking}
+                disabled={cancelMutation.isPending}
+                style={{
+                  backgroundColor: colors.danger,
+                  opacity: cancelMutation.isPending ? 0.75 : 1,
+                }}
+                className="flex-[1.4] flex-row items-center justify-center gap-2 rounded-2xl py-4"
+              >
+                {cancelMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <XCircle size={18} color="#FFFFFF" />
+                    <Text className="font-extrabold text-white">Cancel</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled
+                style={{ backgroundColor: statusTheme.bg }}
+                className="flex-[1.4] items-center justify-center rounded-2xl py-4"
+              >
+                <Text style={{ color: statusTheme.text }} className="font-extrabold">
+                  {statusTheme.label}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </SafeAreaView>
+    </View>
+  );
+}
+
+function CenterState({
+  icon,
+  title,
+  subtitle,
+  loading,
+  actionText,
+  onAction,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  loading?: boolean;
+  actionText?: string;
+  onAction?: () => void;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      className="items-center justify-center px-5"
+    >
+      <View
+        style={{ backgroundColor: colors.card, borderColor: colors.border }}
+        className="w-full items-center rounded-[30px] border p-8"
+      >
+        {loading ? <ActivityIndicator color={colors.primary} /> : icon}
+
+        <Text style={{ color: colors.text }} className="mt-4 text-xl font-extrabold">
+          {title}
+        </Text>
+
+        <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm">
+          {subtitle}
+        </Text>
+
+        {actionText && onAction && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onAction}
+            style={{ backgroundColor: colors.primary }}
+            className="mt-6 rounded-2xl px-6 py-3"
+          >
+            <Text className="font-extrabold text-white">{actionText}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -362,9 +551,9 @@ function InfoRow({
         <Text
           style={{ color: colors.text }}
           className="mt-1 font-semibold"
-          numberOfLines={2}
+          numberOfLines={3}
         >
-          {value}
+          {value || "Not available"}
         </Text>
       </View>
     </View>
@@ -383,7 +572,7 @@ function SummaryRow({
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center justify-between">
+    <View className="flex-row items-center justify-between gap-4">
       <Text
         style={{ color: strong ? colors.text : colors.muted }}
         className={strong ? "text-base font-extrabold" : "text-sm font-medium"}
@@ -454,4 +643,131 @@ function SafetyRow({ text }: { text: string }) {
       </Text>
     </View>
   );
+}
+
+function mapBookingToDetails(booking: any): BookingDetails {
+  const source = booking.ride_source || "";
+  const destination = booking.ride_destination || "";
+
+  return {
+    id: String(booking.id),
+    code: booking.booking_code || `#${booking.id}`,
+    rideId: String(booking.ride_id),
+    from: shortAddress(source),
+    to: shortAddress(destination),
+    fullFrom: source,
+    fullTo: destination,
+    sourceLat: Number(booking.ride_source_lat || 0),
+    sourceLng: Number(booking.ride_source_lng || 0),
+    destinationLat: Number(booking.ride_destination_lat || 0),
+    destinationLng: Number(booking.ride_destination_lng || 0),
+    date: booking.ride_date || "",
+    time: booking.ride_time || "",
+    seats: Number(booking.seats || 1),
+    pricePerSeat: Number(booking.price_per_seat || 0),
+    totalPrice: Number(booking.total_price || 0),
+    status: normalizeBookingStatus(booking.status),
+    paymentStatus: booking.payment_status || "unpaid",
+    paymentType: booking.payment_type || "cash",
+    driverName: booking.driver_name || "Driver",
+    driverPhone: booking.driver_phone || null,
+    car: `${booking.brand || ""} ${booking.model || ""}`.trim() || "Vehicle",
+    registrationNumber: booking.registration_number || "Not available",
+    color: booking.color || "Vehicle",
+  };
+}
+
+function normalizeBookingStatus(status?: string): BookingStatus {
+  const value = String(status || "").toLowerCase();
+
+  if (["confirmed", "accepted"].includes(value)) return "confirmed";
+  if (["cancelled", "canceled", "rejected"].includes(value)) return "cancelled";
+  if (["completed", "complete"].includes(value)) return "completed";
+
+  return "pending";
+}
+
+function shortAddress(address?: string) {
+  if (!address) return "";
+
+  return address
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
+}
+
+function formatDisplayDate(value?: string) {
+  if (!value) return "Date unavailable";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatDisplayTime(value?: string) {
+  if (!value) return "Time unavailable";
+
+  const parts = value.split(":");
+
+  if (parts.length < 2) return value;
+
+  let hour = Number(parts[0]);
+  const minute = parts[1];
+
+  if (Number.isNaN(hour)) return value;
+
+  const period = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+
+  return `${hour}:${minute} ${period}`;
+}
+
+function capitalize(value?: string) {
+  if (!value) return "Not available";
+
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getStatusTheme(
+  status: BookingStatus,
+  colors: ReturnType<typeof useAppTheme>["colors"],
+) {
+  if (status === "confirmed") {
+    return {
+      label: "Confirmed",
+      bg: "rgba(34,197,94,0.14)",
+      text: colors.success,
+    };
+  }
+
+  if (status === "completed") {
+    return {
+      label: "Completed",
+      bg: colors.primarySoft,
+      text: colors.primary,
+    };
+  }
+
+  if (status === "cancelled") {
+    return {
+      label: "Cancelled",
+      bg: colors.dangerSoft,
+      text: colors.danger,
+    };
+  }
+
+  return {
+    label: "Pending",
+    bg: colors.primarySoft,
+    text: colors.primary,
+  };
 }

@@ -1,4 +1,5 @@
 import { RideCard } from "@/components/ride/RideCard";
+import { shortAddress } from "@/hooks/address-trimmer";
 import { getRidesApi } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -54,8 +55,8 @@ function getDateByFilter(filter: string) {
 function mapApiRideToCard(ride: any) {
   return {
     id: String(ride.id),
-    from: ride.source_address,
-    to: ride.destination_address,
+    from: shortAddress(ride.source_address),
+    to: shortAddress(ride.destination_address),
     date: ride.ride_date,
     time: ride.departure_time,
     price: Number(ride.price_per_seat || 0),
@@ -63,8 +64,8 @@ function mapApiRideToCard(ride: any) {
     driver: ride.driver_name || "Driver",
     rating: Number(ride.vehicle_rating || 4.8),
     car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
-    pickup: ride.source_address,
-    drop: ride.destination_address,
+    pickup: shortAddress(ride.source_address).split(",")[0],
+    drop: shortAddress(ride.destination_address),
     pickupCoordinate: {
       latitude: Number(ride.source_lat),
       longitude: Number(ride.source_lng),

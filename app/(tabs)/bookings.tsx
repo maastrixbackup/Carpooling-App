@@ -1,5 +1,10 @@
-import { demoRides } from "@/data/demoRides";
+import { useConfirm } from "@/components/common/ConfirmProvider";
+import {
+  cancelBookingApi,
+  getMyBookingsApi,
+} from "@/services/booking.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   Calendar,
@@ -13,8 +18,9 @@ import {
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
-  Modal,
+  ActivityIndicator,
   Platform,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -22,10 +28,24 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
 type BookingStatus = "upcoming" | "completed" | "cancelled";
 
-type BookingRide = (typeof demoRides)[number] & {
+type BookingUi = {
+  id: string;
+  code: string;
+  from: string;
+  to: string;
+  pickup: string;
+  drop: string;
+  date: string;
+  time: string;
+  price: number;
+  seats: number;
+  driver: string;
+  car: string;
+  paymentStatus: string;
   bookingStatus: BookingStatus;
 };
 
@@ -38,44 +58,70 @@ const bookingTabs: { label: string; value: BookingStatus | "all" }[] = [
 
 export default function BookingsScreen() {
   const { colors } = useAppTheme();
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
 
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<BookingStatus | "all">("all");
-  const [cancelModalVisible, setCancelModalVisible] = useState(false);
-  const [selectedRide, setSelectedRide] = useState<BookingRide | null>(null);
 
-  const bookings: BookingRide[] = useMemo(
-    () =>
-      demoRides.map((ride, index) => ({
-        ...ride,
-        bookingStatus:
-          index === 0 ? "upcoming" : index === 1 ? "completed" : "cancelled",
-      })),
-    []
-  );
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ["my-bookings"],
+    queryFn: getMyBookingsApi,
+  });
+
+  const bookings: BookingUi[] = useMemo(() => {
+    const rawBookings = data?.data?.bookings || [];
+    return rawBookings.map(mapBookingToUi);
+  }, [data]);
+
+  const cancelMutation = useMutation({
+    mutationFn: cancelBookingApi,
+    onSuccess: async () => {
+      toast.success("Booking cancelled successfully.");
+      await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      await queryClient.invalidateQueries({ queryKey: ["rides"] });
+      await queryClient.invalidateQueries({ queryKey: ["home-bootstrap"] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Unable to cancel booking.");
+    },
+  });
 
   const filteredBookings = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return bookings.filter((ride) => {
-      const routeText = `${ride.from} ${ride.to} ${ride.driver} ${ride.car}`.toLowerCase();
+    return bookings.filter((booking) => {
+      const routeText =
+        `${booking.from} ${booking.to} ${booking.driver} ${booking.car} ${booking.code}`.toLowerCase();
 
       const matchesSearch = query ? routeText.includes(query) : true;
       const matchesTab =
-        activeTab === "all" ? true : ride.bookingStatus === activeTab;
+        activeTab === "all" ? true : booking.bookingStatus === activeTab;
 
       return matchesSearch && matchesTab;
     });
   }, [bookings, search, activeTab]);
 
-  const handleCancelPress = (ride: BookingRide) => {
-    setSelectedRide(ride);
-    setCancelModalVisible(true);
-  };
+  const upcomingCount = bookings.filter(
+    (item) => item.bookingStatus === "upcoming"
+  ).length;
 
-  const handleConfirmCancel = () => {
-    setCancelModalVisible(false);
-    setSelectedRide(null);
+  const completedCount = bookings.filter(
+    (item) => item.bookingStatus === "completed"
+  ).length;
+
+  const handleCancelPress = async (booking: BookingUi) => {
+    const ok = await confirm({
+      title: "Cancel booking?",
+      message: "This booking will be cancelled and your seat will be released.",
+      confirmText: "Cancel",
+      cancelText: "Keep Booking",
+      danger: true,
+    });
+
+    if (!ok) return;
+
+    cancelMutation.mutate(booking.id);
   };
 
   return (
@@ -84,6 +130,9 @@ export default function BookingsScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={isFetching} onRefresh={refetch} />
+          }
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: Platform.OS === "android" ? 16 : 12,
@@ -129,12 +178,16 @@ export default function BookingsScreen() {
                 onChangeText={setSearch}
                 placeholder="Search booking, route, driver"
                 placeholderTextColor={colors.muted}
+                autoCorrect={false}
                 style={{ color: colors.text }}
                 className="flex-1 text-base font-semibold"
               />
 
               {search.length > 0 && (
-                <TouchableOpacity onPress={() => setSearch("")}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setSearch("")}
+                >
                   <X size={17} color={colors.muted} />
                 </TouchableOpacity>
               )}
@@ -170,12 +223,12 @@ export default function BookingsScreen() {
           <View className="mt-6 flex-row gap-3">
             <SummaryCard
               label="Upcoming"
-              value={`${bookings.filter((b) => b.bookingStatus === "upcoming").length}`}
+              value={`${upcomingCount}`}
               icon={<Clock size={17} color={colors.primary} />}
             />
             <SummaryCard
               label="Completed"
-              value={`${bookings.filter((b) => b.bookingStatus === "completed").length}`}
+              value={`${completedCount}`}
               icon={<CheckCircle2 size={17} color={colors.success} />}
             />
           </View>
@@ -195,12 +248,15 @@ export default function BookingsScreen() {
           </View>
 
           <View className="mt-4 gap-4">
-            {filteredBookings.length > 0 ? (
-              filteredBookings.map((ride) => (
+            {isLoading ? (
+              <LoadingBookings />
+            ) : filteredBookings.length > 0 ? (
+              filteredBookings.map((booking) => (
                 <BookingCard
-                  key={ride.id}
-                  ride={ride}
-                  onCancel={() => handleCancelPress(ride)}
+                  key={booking.id}
+                  booking={booking}
+                  cancelling={cancelMutation.isPending}
+                  onCancel={() => handleCancelPress(booking)}
                 />
               ))
             ) : (
@@ -208,28 +264,23 @@ export default function BookingsScreen() {
             )}
           </View>
         </ScrollView>
-
-        <CancelBookingModal
-          visible={cancelModalVisible}
-          ride={selectedRide}
-          onClose={() => setCancelModalVisible(false)}
-          onConfirm={handleConfirmCancel}
-        />
       </SafeAreaView>
     </View>
   );
 }
 
 function BookingCard({
-  ride,
+  booking,
   onCancel,
+  cancelling,
 }: {
-  ride: BookingRide;
+  booking: BookingUi;
   onCancel: () => void;
+  cancelling?: boolean;
 }) {
   const { colors } = useAppTheme();
 
-  const statusTheme = getStatusTheme(ride.bookingStatus, colors);
+  const statusTheme = getStatusTheme(booking.bookingStatus, colors);
 
   return (
     <TouchableOpacity
@@ -237,14 +288,14 @@ function BookingCard({
       onPress={() =>
         router.push({
           pathname: "/booking/[id]",
-          params: { id: ride.id },
+          params: { id: booking.id },
         })
       }
       style={{
         backgroundColor: colors.card,
         borderColor: colors.border,
       }}
-      className="overflow-hidden rounded-[30px] border p-5"
+      className="overflow-hidden rounded-[30px] border p-5 shadow"
     >
       <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-blue-500/10" />
 
@@ -269,22 +320,34 @@ function BookingCard({
       <Text
         style={{ color: colors.text }}
         className="mt-4 text-xl font-extrabold"
+        numberOfLines={2}
       >
-        {ride.from} → {ride.to}
+        {booking.from} → {booking.to}
+      </Text>
+
+      <Text style={{ color: colors.muted }} className="mt-2 text-xs font-bold">
+        Booking ID: {booking.code}
       </Text>
 
       <View className="mt-4 gap-3">
         <InfoRow
           icon={<Calendar size={16} color={colors.primary} />}
-          text={`${ride.date}, ${ride.time}`}
+          text={`${formatDisplayDate(booking.date)} • ${formatDisplayTime(
+            booking.time
+          )}`}
         />
 
         <InfoRow
           icon={<MapPin size={16} color={colors.primary} />}
-          text={`${ride.pickup} to ${ride.drop}`}
+          text={`${booking.pickup} to ${booking.drop}`}
         />
 
-        <InfoRow icon={<Car size={16} color={colors.primary} />} text={ride.car} />
+        <InfoRow
+          icon={<Car size={16} color={colors.primary} />}
+          text={`${booking.car} • ${booking.seats} seat${
+            booking.seats > 1 ? "s" : ""
+          }`}
+        />
       </View>
 
       <View
@@ -293,29 +356,40 @@ function BookingCard({
       >
         <View>
           <Text style={{ color: colors.muted }} className="text-xs">
-            Paid amount
+            Payable amount
           </Text>
           <Text
             style={{ color: colors.primary }}
             className="mt-1 text-lg font-extrabold"
           >
-            ₹{ride.price}
+            ₹{booking.price}
+          </Text>
+          <Text style={{ color: colors.muted }} className="mt-1 text-[11px] font-bold">
+            {booking.paymentStatus.toUpperCase()}
           </Text>
         </View>
 
-        {ride.bookingStatus === "upcoming" ? (
+        {booking.bookingStatus === "upcoming" ? (
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={(event) => {
               event.stopPropagation();
               onCancel();
             }}
-            style={{ backgroundColor: colors.dangerSoft }}
+            disabled={cancelling}
+            style={{
+              backgroundColor: colors.dangerSoft,
+              opacity: cancelling ? 0.7 : 1,
+            }}
             className="rounded-full px-4 py-2"
           >
-            <Text style={{ color: colors.danger }} className="text-xs font-bold">
-              Cancel
-            </Text>
+            {cancelling ? (
+              <ActivityIndicator size="small" color={colors.danger} />
+            ) : (
+              <Text style={{ color: colors.danger }} className="text-xs font-bold">
+                Cancel
+              </Text>
+            )}
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -324,7 +398,7 @@ function BookingCard({
               event.stopPropagation();
               router.push({
                 pathname: "/booking/[id]",
-                params: { id: ride.id },
+                params: { id: booking.id },
               });
             }}
             style={{ backgroundColor: colors.primarySoft }}
@@ -351,7 +425,7 @@ function InfoRow({ icon, text }: { icon: React.ReactNode; text: string }) {
         className="flex-1 text-sm font-medium"
         numberOfLines={1}
       >
-        {text}
+        {text || "Not available"}
       </Text>
     </View>
   );
@@ -390,6 +464,22 @@ function SummaryCard({
   );
 }
 
+function LoadingBookings() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      className="items-center rounded-[30px] border p-8"
+    >
+      <ActivityIndicator color={colors.primary} />
+      <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
+        Loading bookings...
+      </Text>
+    </View>
+  );
+}
+
 function EmptyBookings() {
   const { colors } = useAppTheme();
 
@@ -420,90 +510,90 @@ function EmptyBookings() {
   );
 }
 
-function CancelBookingModal({
-  visible,
-  ride,
-  onClose,
-  onConfirm,
-}: {
-  visible: boolean;
-  ride: BookingRide | null;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  const { colors } = useAppTheme();
+function mapBookingToUi(booking: any): BookingUi {
+  const sourceAddress = booking.ride_source || "";
+  const destinationAddress = booking.ride_destination || "";
 
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/60">
-        <View
-          style={{ backgroundColor: colors.card, borderColor: colors.border }}
-          className="rounded-t-[34px] border px-5 pb-8 pt-5"
-        >
-          <View className="mb-5 flex-row items-center justify-between">
-            <View>
-              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                Cancel booking?
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-                This action is only demo for now.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ backgroundColor: colors.input }}
-              className="h-10 w-10 items-center justify-center rounded-full"
-            >
-              <X size={18} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {ride && (
-            <View
-              style={{ backgroundColor: colors.input }}
-              className="rounded-3xl p-4"
-            >
-              <Text style={{ color: colors.text }} className="font-extrabold">
-                {ride.from} → {ride.to}
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-                {ride.date}, {ride.time}
-              </Text>
-            </View>
-          )}
-
-          <View className="mt-5 flex-row gap-3">
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ backgroundColor: colors.input }}
-              className="flex-1 rounded-2xl py-4"
-            >
-              <Text
-                style={{ color: colors.text }}
-                className="text-center font-extrabold"
-              >
-                Keep Booking
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={onConfirm}
-              style={{ backgroundColor: colors.danger }}
-              className="flex-1 rounded-2xl py-4"
-            >
-              <Text className="text-center font-extrabold text-white">
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
+  return {
+    id: String(booking.id),
+    code: booking.booking_code || `#${booking.id}`,
+    from: shortAddress(sourceAddress),
+    to: shortAddress(destinationAddress),
+    pickup: shortAddress(sourceAddress),
+    drop: shortAddress(destinationAddress),
+    date: booking.ride_date || "",
+    time: booking.ride_time || "",
+    price: Number(booking.total_price || 0),
+    seats: Number(booking.seats || 1),
+    driver: booking.driver_name || "Driver",
+    car:
+      `${booking.brand || ""} ${booking.model || ""}`.trim() ||
+      "Vehicle",
+    paymentStatus: booking.payment_status || "unpaid",
+    bookingStatus: normalizeBookingStatus(booking.status),
+  };
 }
 
-function getStatusTheme(status: BookingStatus, colors: ReturnType<typeof useAppTheme>["colors"]) {
+function normalizeBookingStatus(status?: string): BookingStatus {
+  const value = String(status || "").toLowerCase();
+
+  if (["completed", "complete"].includes(value)) return "completed";
+
+  if (["cancelled", "canceled", "rejected"].includes(value)) {
+    return "cancelled";
+  }
+
+  return "upcoming";
+}
+
+function shortAddress(address?: string) {
+  if (!address) return "";
+
+  return address
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(", ");
+}
+
+function formatDisplayDate(value?: string) {
+  if (!value) return "Date unavailable";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatDisplayTime(value?: string) {
+  if (!value) return "Time unavailable";
+
+  const parts = value.split(":");
+
+  if (parts.length < 2) return value;
+
+  let hour = Number(parts[0]);
+  const minute = parts[1];
+
+  if (Number.isNaN(hour)) return value;
+
+  const ampm = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+
+  return `${hour}:${minute} ${ampm}`;
+}
+
+function getStatusTheme(
+  status: BookingStatus,
+  colors: ReturnType<typeof useAppTheme>["colors"]
+) {
   if (status === "completed") {
     return {
       label: "Completed",
