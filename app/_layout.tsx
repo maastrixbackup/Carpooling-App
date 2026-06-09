@@ -125,6 +125,16 @@ function AppContent() {
             contentStyle: { backgroundColor: colors.bg },
           }}
         />
+        <Stack.Screen
+          name="my-pub-rides"
+          options={{
+            animation: "slide_from_right",
+            animationDuration: 220,
+            gestureEnabled: true,
+            fullScreenGestureEnabled: true,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        />
 
       </Stack>
 

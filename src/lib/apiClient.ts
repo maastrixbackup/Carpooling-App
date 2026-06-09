@@ -9,31 +9,61 @@ export async function apiClient(
   } = {},
 ) {
   const token = await getAccessToken();
-
   const url = `${API_URL}${endpoint}`;
 
-  const headers: any = {
-    "Content-Type": "application/json",
-    ...(options.headers || {}),
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
   };
+
+  const hasBody =
+    options.body !== undefined && options.body !== null && options.body !== "";
+
+  if (hasBody) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (options.auth !== false && token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  logger.request(
-    url,
-    options.method || "GET",
-    options.body ? JSON.parse(options.body as string) : undefined,
-  );
+  let requestBodyForLog: any = undefined;
+
+  if (hasBody && typeof options.body === "string") {
+    try {
+      requestBodyForLog = JSON.parse(options.body);
+    } catch {
+      requestBodyForLog = options.body;
+    }
+  }
+
+  logger.request(url, options.method || "GET", requestBodyForLog);
+
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers,
+  };
+
+  if (!hasBody) {
+    delete fetchOptions.body;
+  }
 
   try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const response = await fetch(url, fetchOptions);
 
-    const data = await response.json();
+    const text = await response.text();
+
+    let data: any = {};
+
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = {
+          success: false,
+          message: text,
+        };
+      }
+    }
 
     if (!response.ok) {
       logger.error(url, {
@@ -41,7 +71,7 @@ export async function apiClient(
         data,
       });
 
-      throw new Error(data.message || "Something went wrong");
+      throw new Error(data?.message || "Something went wrong");
     }
 
     logger.response(url, data);

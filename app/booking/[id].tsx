@@ -3,6 +3,7 @@ import {
   cancelBookingApi,
   getBookingByIdApi,
 } from "@/services/booking.service";
+import { createReviewApi } from "@/services/review.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
@@ -15,11 +16,13 @@ import {
   Navigation,
   Phone,
   ShieldCheck,
+  Star,
   Ticket,
   User,
   Users,
-  XCircle
+  XCircle,
 } from "lucide-react-native";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -28,7 +31,7 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -80,6 +83,8 @@ type BookingDetails = {
   car: string;
   registrationNumber: string;
   color: string;
+  hasReviewed: boolean;
+  driverId: string;
 };
 
 export default function BookingDetailsScreen() {
@@ -88,6 +93,21 @@ export default function BookingDetailsScreen() {
   const confirm = useConfirm();
   const queryClient = useQueryClient();
 
+  const [rating, setRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+
+  const reviewMutation = useMutation({
+    mutationFn: createReviewApi,
+    onSuccess: async () => {
+      toast.success("Review submitted successfully.");
+      await queryClient.invalidateQueries({
+        queryKey: ["booking-details", id],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Unable to submit review.");
+    },
+  });
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["booking-details", id],
     queryFn: () => getBookingByIdApi(id!),
@@ -102,7 +122,9 @@ export default function BookingDetailsScreen() {
     mutationFn: cancelBookingApi,
     onSuccess: async () => {
       toast.success("Booking cancelled successfully.");
-      await queryClient.invalidateQueries({ queryKey: ["booking-details", id] });
+      await queryClient.invalidateQueries({
+        queryKey: ["booking-details", id],
+      });
       await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
       await queryClient.invalidateQueries({ queryKey: ["rides"] });
       await queryClient.invalidateQueries({ queryKey: ["home-bootstrap"] });
@@ -171,7 +193,8 @@ export default function BookingDetailsScreen() {
   }
 
   const statusTheme = getStatusTheme(booking.status, colors);
-  const canCancel = booking.status === "pending" || booking.status === "confirmed";
+  const canCancel =
+    booking.status === "pending" || booking.status === "confirmed";
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -192,7 +215,9 @@ export default function BookingDetailsScreen() {
               activeOpacity={0.85}
               onPress={() => router.back()}
               style={{
-                backgroundColor: colors.card, borderColor: colors.border, shadowColor: "#000",
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                shadowColor: "#000",
                 shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: 0.12,
                 shadowRadius: 18,
@@ -235,14 +260,17 @@ export default function BookingDetailsScreen() {
               {booking.from}
             </Text>
 
-            <Text className="my-1 text-2xl font-extrabold text-blue-100">↓</Text>
+            <Text className="my-1 text-2xl font-extrabold text-blue-100">
+              ↓
+            </Text>
 
             <Text className="text-xl font-extrabold leading-9 text-white">
               {booking.to}
             </Text>
 
             <Text className="mt-4 text-sm font-bold text-blue-100">
-              {formatDisplayDate(booking.date)} • {formatDisplayTime(booking.time)}
+              {formatDisplayDate(booking.date)} •{" "}
+              {formatDisplayTime(booking.time)}
             </Text>
 
             <Text className="mt-2 text-xs font-bold text-white/80">
@@ -269,7 +297,7 @@ export default function BookingDetailsScreen() {
               icon={<Calendar size={18} color={colors.primary} />}
               label="Date & Time"
               value={`${formatDisplayDate(booking.date)} • ${formatDisplayTime(
-                booking.time
+                booking.time,
               )}`}
             />
 
@@ -292,7 +320,10 @@ export default function BookingDetailsScreen() {
               className="mt-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
             >
               <Navigation size={18} color={colors.primary} />
-              <Text style={{ color: colors.primary }} className="font-extrabold">
+              <Text
+                style={{ color: colors.primary }}
+                className="font-extrabold"
+              >
                 View Route Map
               </Text>
             </TouchableOpacity>
@@ -309,10 +340,16 @@ export default function BookingDetailsScreen() {
                 </View>
 
                 <View className="flex-1">
-                  <Text style={{ color: colors.text }} className="text-base font-extrabold">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-base font-extrabold"
+                  >
                     {booking.driverName}
                   </Text>
-                  <Text style={{ color: colors.muted }} className="mt-1 text-xs font-semibold">
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs font-semibold"
+                  >
                     {booking.car} • {booking.color}
                   </Text>
                 </View>
@@ -322,7 +359,10 @@ export default function BookingDetailsScreen() {
                 style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
                 className="rounded-full px-3 py-1.5"
               >
-                <Text style={{ color: colors.success }} className="text-xs font-bold">
+                <Text
+                  style={{ color: colors.success }}
+                  className="text-xs font-bold"
+                >
                   Verified
                 </Text>
               </View>
@@ -350,14 +390,8 @@ export default function BookingDetailsScreen() {
           </SectionCard>
 
           <SectionCard title="Payment Summary">
-            <SummaryRow
-              label="Seat price"
-              value={`₹${booking.pricePerSeat}`}
-            />
-            <SummaryRow
-              label="Seats booked"
-              value={`${booking.seats}`}
-            />
+            <SummaryRow label="Seat price" value={`₹${booking.pricePerSeat}`} />
+            <SummaryRow label="Seats booked" value={`${booking.seats}`} />
             <SummaryRow
               label="Payment type"
               value={capitalize(booking.paymentType)}
@@ -379,6 +413,98 @@ export default function BookingDetailsScreen() {
             </View>
           </SectionCard>
 
+          {booking.status === "completed" && !booking.hasReviewed && (
+            <SectionCard title="Rate Your Driver">
+              <Text
+                style={{ color: colors.muted }}
+                className="text-sm leading-5"
+              >
+                How was your ride with {booking.driverName}?
+              </Text>
+
+              <View className="flex-row gap-2">
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    onPress={() => setRating(item)}
+                    activeOpacity={0.8}
+                  >
+                    <Star
+                      size={30}
+                      color="#F59E0B"
+                      fill={item <= rating ? "#F59E0B" : "transparent"}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* <View
+                style={{
+                  backgroundColor: colors.input,
+                  borderColor: colors.border,
+                }}
+                className="rounded-2xl border p-4"
+              >
+                <TextInput
+                  value={reviewText}
+                  onChangeText={setReviewText}
+                  multiline
+                  maxLength={300}
+                  placeholder="Share your experience with the driver..."
+                  placeholderTextColor={colors.muted}
+                  textAlignVertical="top"
+                  style={{
+                    color: colors.text,
+                    minHeight: 100,
+                  }}
+                />
+
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-2 text-right text-xs"
+                >
+                  {reviewText.length}/500
+                </Text>
+              </View> */}
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={reviewMutation.isPending}
+                onPress={() =>
+                  reviewMutation.mutate({
+                    booking_id: booking.id,
+                    rating,
+                    review: "",
+                  })
+                }
+                style={{
+                  backgroundColor: colors.primary,
+                  opacity: reviewMutation.isPending ? 0.75 : 1,
+                }}
+                className="rounded-2xl py-4"
+              >
+                {reviewMutation.isPending ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text className="text-center font-extrabold text-white">
+                    Submit Review
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </SectionCard>
+          )}
+
+          {booking.status === "completed" && booking.hasReviewed && (
+            <SectionCard title="Review Submitted">
+              <Text
+                style={{ color: colors.muted }}
+                className="text-sm leading-5"
+              >
+                Thanks for sharing your feedback. Your review helps keep the
+                community reliable.
+              </Text>
+            </SectionCard>
+          )}
         </ScrollView>
 
         <View
@@ -422,7 +548,10 @@ export default function BookingDetailsScreen() {
               className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
             >
               <Navigation size={18} color={colors.primary} />
-              <Text style={{ color: colors.primary }} className="font-extrabold">
+              <Text
+                style={{ color: colors.primary }}
+                className="font-extrabold"
+              >
                 Map
               </Text>
             </TouchableOpacity>
@@ -454,7 +583,10 @@ export default function BookingDetailsScreen() {
                 style={{ backgroundColor: statusTheme.bg }}
                 className="flex-[1.4] items-center justify-center rounded-2xl py-4"
               >
-                <Text style={{ color: statusTheme.text }} className="font-extrabold">
+                <Text
+                  style={{ color: statusTheme.text }}
+                  className="font-extrabold"
+                >
                   {statusTheme.label}
                 </Text>
               </TouchableOpacity>
@@ -494,11 +626,17 @@ function CenterState({
       >
         {loading ? <ActivityIndicator color={colors.primary} /> : icon}
 
-        <Text style={{ color: colors.text }} className="mt-4 text-xl font-extrabold">
+        <Text
+          style={{ color: colors.text }}
+          className="mt-4 text-xl font-extrabold"
+        >
           {title}
         </Text>
 
-        <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm">
+        <Text
+          style={{ color: colors.muted }}
+          className="mt-2 text-center text-sm"
+        >
           {subtitle}
         </Text>
 
@@ -572,10 +710,7 @@ function InfoRow({
       </View>
 
       <View className="flex-1">
-        <Text
-          style={{ color: colors.muted }}
-          className="text-xs font-bold"
-        >
+        <Text style={{ color: colors.muted }} className="text-xs font-bold">
           {label}
         </Text>
 
@@ -605,38 +740,24 @@ function SummaryRow({
   return (
     <View
       style={{
-        backgroundColor: strong
-          ? colors.primarySoft
-          : colors.input,
+        backgroundColor: strong ? colors.primarySoft : colors.input,
       }}
       className="flex-row items-center justify-between rounded-2xl px-4 py-3"
     >
       <Text
         style={{
-          color: strong
-            ? colors.primary
-            : colors.muted,
+          color: strong ? colors.primary : colors.muted,
         }}
-        className={
-          strong
-            ? "text-base font-extrabold"
-            : "text-sm font-bold"
-        }
+        className={strong ? "text-base font-extrabold" : "text-sm font-bold"}
       >
         {label}
       </Text>
 
       <Text
         style={{
-          color: strong
-            ? colors.primary
-            : colors.text,
+          color: strong ? colors.primary : colors.text,
         }}
-        className={
-          strong
-            ? "text-lg font-extrabold"
-            : "font-extrabold"
-        }
+        className={strong ? "text-lg font-extrabold" : "font-extrabold"}
       >
         {value}
       </Text>
@@ -732,6 +853,8 @@ function mapBookingToDetails(booking: any): BookingDetails {
     car: `${booking.brand || ""} ${booking.model || ""}`.trim() || "Vehicle",
     registrationNumber: booking.registration_number || "Not available",
     color: booking.color || "Vehicle",
+    driverId: String(booking.driver_id || ""),
+    hasReviewed: Boolean(booking.has_reviewed),
   };
 }
 

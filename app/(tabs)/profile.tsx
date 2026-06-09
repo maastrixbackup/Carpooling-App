@@ -10,6 +10,7 @@ import {
   Gift,
   HelpCircle,
   LogOut,
+  Route,
   Settings,
   ShieldCheck,
   Star,
@@ -98,12 +99,9 @@ export default function ProfileScreen() {
 
               <View className="flex-1">
                 <Text style={{ color: colors.text }} className="text-2xl font-extrabold">
-                  Rudranarayan
+                  {user?.name || "Rohit Sharma"}
                 </Text>
 
-                <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-                  Passenger / Driver
-                </Text>
 
                 <View className="mt-3 flex-row flex-wrap items-center gap-2">
                   <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1">
@@ -129,6 +127,16 @@ export default function ProfileScreen() {
             <StatCard label="Trips" value="24" />
             <StatCard label="Saved" value="₹3.2k" />
             <StatCard label="Rating" value="4.8" />
+          </View>
+
+          <View className="pt-4">
+            <MenuItem
+              icon={<Route size={20} color={colors.primary} />}
+              title="My Published Rides"
+              subtitle="Manage rides and passenger bookings"
+              onPress={() => router.push("/my-pub-rides")}
+              last
+            />
           </View>
 
           <Section title="Rewards">

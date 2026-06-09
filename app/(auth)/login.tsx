@@ -29,8 +29,8 @@ export default function LoginScreen() {
   const { colors } = useAppTheme();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState("demo@carpool.com");
-  const [password, setPassword] = useState("12345678");
+  const [email, setEmail] = useState("rudranarayan.maastrix@gmail.com");
+  const [password, setPassword] = useState("AdminPass@123");
   const [secure, setSecure] = useState(true);
   const [loading, setLoading] = useState(false);
 

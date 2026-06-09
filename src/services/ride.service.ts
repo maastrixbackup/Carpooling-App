@@ -49,3 +49,28 @@ export async function getRouteOptionsApi(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export async function getDriverRideDetailsApi(id: string | number) {
+  return apiClient(`/rides/${id}/driver`, {
+    method: "GET",
+  });
+}
+
+export async function updateRideApi(id: string | number, payload: any) {
+  return apiClient(`/rides/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function startRideApi(id: string | number) {
+  return apiClient(`/rides/${id}/start`, {
+    method: "PATCH",
+  });
+}
+
+export async function completeRideApi(id: string | number) {
+  return apiClient(`/rides/${id}/complete`, {
+    method: "PATCH",
+  });
+}

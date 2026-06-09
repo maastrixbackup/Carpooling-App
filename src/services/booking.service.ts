@@ -13,8 +13,9 @@ export async function getMyBookingsApi() {
   });
 }
 
-export async function getDriverBookingsApi() {
-  return apiClient("/bookings/driver-bookings", {
+export async function getDriverBookingsApi(rideId?: string | number) {
+  const query = rideId ? `?ride_id=${rideId}` : "";
+  return apiClient(`/bookings/driver-bookings${query}`, {
     method: "GET",
   });
 }
