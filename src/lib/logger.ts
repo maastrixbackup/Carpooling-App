@@ -20,7 +20,7 @@ export const logger = {
   response(url: string, data: any) {
     console.log(`${colors.green}[API SUCCESS]${colors.reset}`, url);
 
-    console.log(data);
+    // console.log(data);
   },
 
   error(url: string, error: any) {

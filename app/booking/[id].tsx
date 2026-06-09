@@ -12,14 +12,13 @@ import {
   Car,
   CheckCircle2,
   IndianRupee,
-  MapPin,
   Navigation,
   Phone,
   ShieldCheck,
   Ticket,
   User,
   Users,
-  XCircle,
+  XCircle
 } from "lucide-react-native";
 import {
   ActivityIndicator,
@@ -35,7 +34,27 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+const cardShadow = {
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 8,
+  },
+  shadowOpacity: 0.08,
+  shadowRadius: 18,
+  elevation: 5,
+};
 
+const smallShadow = {
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 4,
+  },
+  shadowOpacity: 0.06,
+  shadowRadius: 10,
+  elevation: 3,
+};
 type BookingDetails = {
   id: string;
   code: string;
@@ -177,7 +196,7 @@ export default function BookingDetailsScreen() {
                 shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: 0.12,
                 shadowRadius: 18,
-                 elevation: 6,
+                elevation: 6,
               }}
               className="h-11 w-11 items-center justify-center rounded-full border"
             >
@@ -198,7 +217,10 @@ export default function BookingDetailsScreen() {
           </View>
 
           <View
-            style={{ backgroundColor: colors.primary }}
+            style={{
+              backgroundColor: colors.primary,
+              ...cardShadow,
+            }}
             className="mt-6 overflow-hidden rounded-[34px] p-6"
           >
             <View className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
@@ -213,7 +235,7 @@ export default function BookingDetailsScreen() {
               {booking.from}
             </Text>
 
-            <Text className="my-2 text-2xl font-extrabold text-blue-100">↓</Text>
+            <Text className="my-1 text-2xl font-extrabold text-blue-100">↓</Text>
 
             <Text className="text-xl font-extrabold leading-9 text-white">
               {booking.to}
@@ -251,7 +273,7 @@ export default function BookingDetailsScreen() {
               )}`}
             />
 
-            <InfoRow
+            {/* <InfoRow
               icon={<MapPin size={18} color={colors.primary} />}
               label="Pickup"
               value={booking.fullFrom}
@@ -261,7 +283,7 @@ export default function BookingDetailsScreen() {
               icon={<MapPin size={18} color={colors.success} />}
               label="Drop"
               value={booking.fullTo}
-            />
+            /> */}
 
             <TouchableOpacity
               activeOpacity={0.85}
@@ -357,11 +379,6 @@ export default function BookingDetailsScreen() {
             </View>
           </SectionCard>
 
-          <SectionCard title="Safety">
-            <SafetyRow text="Confirm driver and vehicle details before boarding." />
-            <SafetyRow text="Share your trip status with someone you trust." />
-            <SafetyRow text="Keep this booking screen available during travel." />
-          </SectionCard>
         </ScrollView>
 
         <View
@@ -369,7 +386,7 @@ export default function BookingDetailsScreen() {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
           }}
-          className="absolute bottom-0 left-0 right-0 border-t px-5 pb-8 pt-4"
+          className="absolute bottom-0 left-0 right-0 border-t rounded-t-[28px] px-5 pb-8 pt-4"
         >
           <View className="mb-4 flex-row items-center justify-between">
             <View>
@@ -511,7 +528,11 @@ function SectionCard({
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        ...cardShadow,
+      }}
       className="mt-5 rounded-[30px] border p-5"
     >
       <Text style={{ color: colors.text }} className="text-lg font-extrabold">
@@ -535,23 +556,33 @@ function InfoRow({
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center gap-3">
+    <View
+      style={{
+        backgroundColor: colors.input,
+      }}
+      className="flex-row items-center gap-3 rounded-2xl p-3"
+    >
       <View
-        style={{ backgroundColor: colors.primarySoft }}
+        style={{
+          backgroundColor: colors.primarySoft,
+        }}
         className="h-10 w-10 items-center justify-center rounded-2xl"
       >
         {icon}
       </View>
 
       <View className="flex-1">
-        <Text style={{ color: colors.muted }} className="text-xs">
+        <Text
+          style={{ color: colors.muted }}
+          className="text-xs font-bold"
+        >
           {label}
         </Text>
 
         <Text
           style={{ color: colors.text }}
-          className="mt-1 font-semibold"
-          numberOfLines={3}
+          className="mt-1 text-sm font-semibold leading-5"
+          numberOfLines={2}
         >
           {value || "Not available"}
         </Text>
@@ -572,17 +603,40 @@ function SummaryRow({
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center justify-between gap-4">
+    <View
+      style={{
+        backgroundColor: strong
+          ? colors.primarySoft
+          : colors.input,
+      }}
+      className="flex-row items-center justify-between rounded-2xl px-4 py-3"
+    >
       <Text
-        style={{ color: strong ? colors.text : colors.muted }}
-        className={strong ? "text-base font-extrabold" : "text-sm font-medium"}
+        style={{
+          color: strong
+            ? colors.primary
+            : colors.muted,
+        }}
+        className={
+          strong
+            ? "text-base font-extrabold"
+            : "text-sm font-bold"
+        }
       >
         {label}
       </Text>
 
       <Text
-        style={{ color: strong ? colors.primary : colors.text }}
-        className={strong ? "text-lg font-extrabold" : "font-bold"}
+        style={{
+          color: strong
+            ? colors.primary
+            : colors.text,
+        }}
+        className={
+          strong
+            ? "text-lg font-extrabold"
+            : "font-extrabold"
+        }
       >
         {value}
       </Text>
@@ -603,7 +657,11 @@ function MiniStat({
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        ...smallShadow,
+      }}
       className="flex-1 rounded-[24px] border p-4"
     >
       <View className="flex-row items-center gap-2">

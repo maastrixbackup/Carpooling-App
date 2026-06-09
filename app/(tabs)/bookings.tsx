@@ -11,10 +11,9 @@ import {
   Car,
   CheckCircle2,
   Clock,
-  MapPin,
   Search,
   Ticket,
-  X,
+  X
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
@@ -247,7 +246,7 @@ export default function BookingsScreen() {
             </Text>
           </View>
 
-          <View className="mt-4 gap-4">
+          <View className="mt-5 gap-5">
             {isLoading ? (
               <LoadingBookings />
             ) : filteredBookings.length > 0 ? (
@@ -322,12 +321,12 @@ function BookingCard({
         className="mt-4 text-xl font-extrabold"
         numberOfLines={2}
       >
-        {booking.from} → {booking.to}
+        {shortAddress(booking.from)} → {shortAddress(booking.to)}
       </Text>
 
-      <Text style={{ color: colors.muted }} className="mt-2 text-xs font-bold">
+      {/* <Text style={{ color: colors.muted }} className="mt-2 text-xs font-bold">
         Booking ID: {booking.code}
-      </Text>
+      </Text> */}
 
       <View className="mt-4 gap-3">
         <InfoRow
@@ -337,16 +336,15 @@ function BookingCard({
           )}`}
         />
 
-        <InfoRow
+        {/* <InfoRow
           icon={<MapPin size={16} color={colors.primary} />}
           text={`${booking.pickup} to ${booking.drop}`}
-        />
+        /> */}
 
         <InfoRow
           icon={<Car size={16} color={colors.primary} />}
-          text={`${booking.car} • ${booking.seats} seat${
-            booking.seats > 1 ? "s" : ""
-          }`}
+          text={`${booking.car} • ${booking.seats} seat${booking.seats > 1 ? "s" : ""
+            }`}
         />
       </View>
 
@@ -485,7 +483,18 @@ function EmptyBookings() {
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        shadowColor: "#000",
+        shadowOffset: {
+          width: 0,
+          height: 8,
+        },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 5,
+      }}
       className="items-center rounded-[30px] border p-8"
     >
       <Ticket size={36} color={colors.muted} />
@@ -553,17 +562,14 @@ function shortAddress(address?: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-    .slice(0, 3)
+    .slice(0, 2)
     .join(", ");
 }
 
 function formatDisplayDate(value?: string) {
   if (!value) return "Date unavailable";
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return value;
-
   return date.toLocaleDateString("en-IN", {
     weekday: "short",
     day: "2-digit",
