@@ -3,21 +3,23 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
-    ArrowLeft,
-    Calendar,
-    Car,
-    Plus,
-    Ticket,
-    Users
+  ArrowLeft,
+  Calendar,
+  Car,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Ticket,
 } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -44,14 +46,26 @@ const cardShadow = {
 
 export default function MyPublishedRidesScreen() {
   const { colors } = useAppTheme();
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["my-rides"],
     queryFn: getMyRidesApi,
   });
 
-  const rides: PublishedRide[] =
-    data?.data?.rides?.map(mapRideToUi) || [];
+  const rides: PublishedRide[] = data?.data?.rides?.map(mapRideToUi) || [];
+
+  const completedCount = useMemo(() => {
+    return rides.filter((ride) => ride.status === "completed").length;
+  }, [rides]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -91,16 +105,25 @@ export default function MyPublishedRidesScreen() {
           </View>
 
           <View className="mt-6">
-            <Text style={{ color: colors.muted }} className="text-sm font-semibold">
+            <Text
+              style={{ color: colors.muted }}
+              className="text-sm font-semibold"
+            >
               Driver dashboard
             </Text>
 
-            <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
+            <Text
+              style={{ color: colors.text }}
+              className="mt-1 text-3xl font-extrabold"
+            >
               My Published Rides
             </Text>
 
-            <Text style={{ color: colors.muted }} className="mt-2 text-sm leading-5">
-              Manage your rides, seats, pricing, and passenger bookings.
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-2 text-sm leading-5"
+            >
+              Manage rides, passenger bookings, status, and trip timing.
             </Text>
           </View>
 
@@ -112,14 +135,17 @@ export default function MyPublishedRidesScreen() {
             />
 
             <SummaryCard
-              icon={<Users size={17} color={colors.success} />}
-              label="Available Seats"
-              value={`${rides.reduce((sum, ride) => sum + ride.availableSeats, 0)}`}
+              icon={<CheckCircle2 size={17} color={colors.success} />}
+              label="Completed"
+              value={`${completedCount}`}
             />
           </View>
 
           <View className="mt-8 flex-row items-center justify-between">
-            <Text style={{ color: colors.text }} className="text-xl font-extrabold">
+            <Text
+              style={{ color: colors.text }}
+              className="text-xl font-extrabold"
+            >
               Rides
             </Text>
 
@@ -132,7 +158,9 @@ export default function MyPublishedRidesScreen() {
             {isLoading ? (
               <LoadingCard />
             ) : rides.length > 0 ? (
-              rides.map((ride) => <RideCard key={ride.id} ride={ride} />)
+              rides.map((ride) => (
+                <RideCard key={ride.id} ride={ride} now={now} />
+              ))
             ) : (
               <EmptyState />
             )}
@@ -143,9 +171,10 @@ export default function MyPublishedRidesScreen() {
   );
 }
 
-function RideCard({ ride }: { ride: PublishedRide }) {
+function RideCard({ ride, now }: { ride: PublishedRide; now: Date }) {
   const { colors } = useAppTheme();
   const statusTheme = getStatusTheme(ride.status, colors);
+  const timeLeft = getRideTimeLeft(ride.date, ride.time, now);
 
   return (
     <TouchableOpacity
@@ -173,13 +202,33 @@ function RideCard({ ride }: { ride: PublishedRide }) {
           <Car size={22} color={colors.primary} />
         </View>
 
-        <View
-          style={{ backgroundColor: statusTheme.bg }}
-          className="rounded-full px-3 py-1.5"
-        >
-          <Text style={{ color: statusTheme.text }} className="text-xs font-bold">
-            {statusTheme.label}
-          </Text>
+        <View className="items-end gap-2 flex-row">
+          <View
+            style={{ backgroundColor: statusTheme.bg }}
+            className="rounded-full px-3 py-1.5"
+          >
+            <Text
+              style={{ color: statusTheme.text }}
+              className="text-xs font-bold"
+            >
+              {statusTheme.label}
+            </Text>
+          </View>
+
+          {ride.status.toLowerCase() !== "completed" && (
+            <View
+              style={{ backgroundColor: timeLeft.bg }}
+              className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+            >
+              <Clock size={13} color={timeLeft.text} />
+              <Text
+                style={{ color: timeLeft.text }}
+                className="text-xs font-extrabold"
+              >
+                {timeLeft.label}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -238,17 +287,23 @@ function RideCard({ ride }: { ride: PublishedRide }) {
           <Text style={{ color: colors.muted }} className="text-xs font-bold">
             Price / Seat
           </Text>
-          <Text style={{ color: colors.primary }} className="mt-1 text-xl font-extrabold">
+          <Text
+            style={{ color: colors.primary }}
+            className="mt-1 text-xl font-extrabold"
+          >
             ₹{ride.price}
           </Text>
         </View>
 
         <View className="items-end">
           <Text style={{ color: colors.muted }} className="text-xs font-bold">
-            Seats
+            Ride Status
           </Text>
-          <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
-            {ride.availableSeats}/{ride.totalSeats} available
+          <Text
+            style={{ color: statusTheme.text }}
+            className="mt-1 font-extrabold"
+          >
+            {statusTheme.label}
           </Text>
         </View>
       </View>
@@ -264,7 +319,10 @@ function RideCard({ ride }: { ride: PublishedRide }) {
         style={{ backgroundColor: colors.primarySoft }}
         className="mt-5 rounded-2xl py-3"
       >
-        <Text style={{ color: colors.primary }} className="text-center font-extrabold">
+        <Text
+          style={{ color: colors.primary }}
+          className="text-center font-extrabold"
+        >
           View Bookings & Manage
         </Text>
       </TouchableOpacity>
@@ -299,7 +357,10 @@ function SummaryCard({
         </Text>
       </View>
 
-      <Text style={{ color: colors.text }} className="mt-2 text-2xl font-extrabold">
+      <Text
+        style={{ color: colors.text }}
+        className="mt-2 text-2xl font-extrabold"
+      >
         {value}
       </Text>
     </View>
@@ -357,11 +418,17 @@ function EmptyState() {
     >
       <Car size={38} color={colors.muted} />
 
-      <Text style={{ color: colors.text }} className="mt-4 text-lg font-extrabold">
+      <Text
+        style={{ color: colors.text }}
+        className="mt-4 text-lg font-extrabold"
+      >
         No published rides yet
       </Text>
 
-      <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm">
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-2 text-center text-sm"
+      >
         Publish your first ride and start accepting passenger bookings.
       </Text>
 
@@ -435,11 +502,78 @@ function formatTime(value?: string) {
   return `${hour}:${minute} ${ampm}`;
 }
 
+function getRideDateTime(dateValue?: string, timeValue?: string) {
+  if (!dateValue || !timeValue) return null;
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return null;
+  const [hourRaw, minuteRaw, secondRaw] = timeValue.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw || 0);
+  const second = Number(secondRaw || 0);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) return null;
+
+  date.setHours(hour, minute, second || 0, 0);
+
+  return date;
+}
+
+function getRideTimeLeft(dateValue: string, timeValue: string, now: Date) {
+  const rideDateTime = getRideDateTime(dateValue, timeValue);
+
+  if (!rideDateTime) {
+    return {
+      label: "Time unavailable",
+      bg: "rgba(107,114,128,0.16)",
+      text: "#6B7280",
+    };
+  }
+
+  const diffMs = rideDateTime.getTime() - now.getTime();
+
+  if (diffMs <= 0) {
+    return {
+      label: "Time passed",
+      bg: "rgba(107,114,128,0.16)",
+      text: "#6B7280",
+    };
+  }
+
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const label =
+    days > 0
+      ? `${days}d ${hours}h left`
+      : hours > 0
+        ? `${hours}h ${minutes}m left`
+        : `${minutes}m ${seconds}s left`;
+
+  const withinFiveHours = diffMs <= 5 * 60 * 60 * 1000;
+
+  return {
+    label,
+    bg: withinFiveHours ? "rgba(239,68,68,0.14)" : "rgba(245,158,11,0.16)",
+    text: withinFiveHours ? "#EF4444" : "#F59E0B",
+  };
+}
+
 function getStatusTheme(
   status: string,
-  colors: ReturnType<typeof useAppTheme>["colors"]
+  colors: ReturnType<typeof useAppTheme>["colors"],
 ) {
   const value = String(status || "").toLowerCase();
+
+  if (value === "ongoing") {
+    return {
+      label: "Ongoing",
+      bg: colors.primarySoft,
+      text: colors.primary,
+    };
+  }
 
   if (value === "cancelled") {
     return {
@@ -452,14 +586,14 @@ function getStatusTheme(
   if (value === "completed") {
     return {
       label: "Completed",
-      bg: colors.primarySoft,
-      text: colors.primary,
+      bg: "rgba(34,197,94,0.14)",
+      text: colors.success,
     };
   }
 
   return {
     label: "Scheduled",
-    bg: "rgba(34,197,94,0.14)",
-    text: colors.success,
+    bg: colors.primarySoft,
+    text: colors.primary,
   };
 }

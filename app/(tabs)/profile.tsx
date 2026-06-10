@@ -1,6 +1,8 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
 import { useAuth } from "@/context/AuthContext";
+import { getMeApi } from "@/services/user.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   Bell,
@@ -14,13 +16,14 @@ import {
   Settings,
   ShieldCheck,
   Star,
-  X
+  X,
 } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Alert,
+  ActivityIndicator,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -32,15 +35,34 @@ import { toast } from "sonner-native";
 
 export default function ProfileScreen() {
   const { colors } = useAppTheme();
-  const { user, logout } = useAuth();
+  const { logout, isAuthenticated } = useAuth();
+  const confirm = useConfirm();
+
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const confirm = useConfirm();
+
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ["me"],
+    queryFn: getMeApi,
+    enabled: isAuthenticated,
+  });
+
+  const user = data?.data?.user;
+  const displayName = user?.full_name || user?.name || "User";
+  const email = user?.email || "";
+  const phone = user?.phone || "";
+  const isVerified = Number(user?.is_verified) === 1 || user?.verification_status === "verified";
+  const rating = user?.rating ? Number(user.rating).toFixed(1) : "N/A";
+  const totalRides = String(user?.total_rides || 0);
+  const savedAmount = user?.saved_amount
+    ? `₹${Number(user.saved_amount).toFixed(1)}`
+    : "₹0";
 
   const handleLogout = async () => {
     const ok = await confirm({
       title: "Logout?",
-      message: "You will need to login again to access your rides and bookings.",
+      message:
+        "You will need to login again to access your rides and bookings.",
       confirmText: "Logout",
       cancelText: "Stay",
       danger: true,
@@ -66,6 +88,9 @@ export default function ProfileScreen() {
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isFetching} onRefresh={refetch} />
+          }
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: Platform.OS === "android" ? 16 : 12,
@@ -73,10 +98,16 @@ export default function ProfileScreen() {
           }}
         >
           <View>
-            <Text style={{ color: colors.muted }} className="text-sm font-semibold">
+            <Text
+              style={{ color: colors.muted }}
+              className="text-sm font-semibold"
+            >
               Account
             </Text>
-            <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
+            <Text
+              style={{ color: colors.text }}
+              className="mt-1 text-3xl font-extrabold"
+            >
               Profile
             </Text>
           </View>
@@ -89,44 +120,84 @@ export default function ProfileScreen() {
           >
             <View className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-blue-500/10" />
 
-            <View className="flex-row items-center gap-4">
-              <View
-                style={{ backgroundColor: colors.primary }}
-                className="h-20 w-20 items-center justify-center rounded-full"
-              >
-                <Text className="text-3xl font-extrabold text-white">R</Text>
-              </View>
-
-              <View className="flex-1">
-                <Text style={{ color: colors.text }} className="text-2xl font-extrabold">
-                  {user?.name || "Rohit Sharma"}
+            {isLoading ? (
+              <View className="items-center py-6">
+                <ActivityIndicator color={colors.primary} />
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-3 text-sm font-bold"
+                >
+                  Loading profile...
                 </Text>
+              </View>
+            ) : (
+              <View className="flex-row items-center gap-4">
+                <View
+                  style={{ backgroundColor: colors.primary }}
+                  className="h-20 w-20 items-center justify-center rounded-full"
+                >
+                  <Text className="text-3xl font-extrabold text-white">
+                    {getInitial(displayName)}
+                  </Text>
+                </View>
 
+                <View className="flex-1">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-2xl font-extrabold"
+                    numberOfLines={1}
+                  >
+                    {displayName}
+                  </Text>
 
-                <View className="mt-3 flex-row flex-wrap items-center gap-2">
-                  <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1">
-                    <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                    <Text style={{ color: colors.text }} className="text-xs font-bold">
-                      4.8
-                    </Text>
-                  </View>
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-sm font-semibold"
+                    numberOfLines={1}
+                  >
+                    {email || phone || "No contact added"}
+                  </Text>
 
-                  <View style={{ backgroundColor: "rgba(34,197,94,0.14)" }} className="rounded-full px-3 py-1">
-                    <Text style={{ color: colors.success }} className="text-xs font-bold">
-                      Verified
-                    </Text>
+                  <View className="mt-3 flex-row flex-wrap items-center gap-2">
+                    <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1">
+                      <Star size={14} color="#F59E0B" fill="#F59E0B" />
+                      <Text
+                        style={{ color: colors.text }}
+                        className="text-xs font-bold"
+                      >
+                        {user?.rating ? user.rating.toFixed(1) : "No rating"}
+                      </Text>
+                    </View>
+
+                    <View
+                      style={{
+                        backgroundColor: isVerified
+                          ? "rgba(34,197,94,0.14)"
+                          : colors.dangerSoft,
+                      }}
+                      className="rounded-full px-3 py-1"
+                    >
+                      <Text
+                        style={{
+                          color: isVerified ? colors.success : colors.danger,
+                        }}
+                        className="text-xs font-bold"
+                      >
+                        {isVerified ? "Verified" : "Not Verified"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
-              <ChevronRight size={20} color={colors.muted} />
-            </View>
+                <ChevronRight size={20} color={colors.muted} />
+              </View>
+            )}
           </TouchableOpacity>
 
           <View className="mt-5 flex-row gap-3">
-            <StatCard label="Trips" value="24" />
-            <StatCard label="Saved" value="₹3.2k" />
-            <StatCard label="Rating" value="4.8" />
+            <StatCard label="Trips" value={totalRides} />
+            <StatCard label="Saved" value={savedAmount} />
+            <StatCard label="Rating" value={rating} />
           </View>
 
           <View className="pt-4">
@@ -158,9 +229,19 @@ export default function ProfileScreen() {
             />
 
             <MenuItem
-              icon={<ShieldCheck size={20} color={colors.success} />}
+              icon={
+                <ShieldCheck
+                  size={20}
+                  color={isVerified ? colors.success : colors.primary}
+                />
+              }
               title="Verification"
-              subtitle="ID, phone, and safety checks"
+              subtitle={
+                isVerified
+                  ? "Your account is verified"
+                  : "Complete ID and safety checks"
+              }
+              onPress={() => router.push("/verification" as any)}
               last
             />
           </Section>
@@ -235,22 +316,27 @@ function ProfileModal({
   user: any;
 }) {
   const { colors } = useAppTheme();
-  const [name, setName] = useState(user?.name || "");
+
+  const displayName = user?.full_name || user?.name || "";
+  const [name, setName] = useState(displayName);
   const [phone, setPhone] = useState(user?.phone || "");
   const [email, setEmail] = useState(user?.email || "");
 
-  const handleSave = () => {
-    if (!name.trim() || !phone.trim()) {
-      Alert.alert("Missing details", "Name and phone number are required.");
-      return;
+  useEffect(() => {
+    if (visible) {
+      setName(user?.full_name || user?.name || "");
+      setPhone(user?.phone || "");
+      setEmail(user?.email || "");
     }
-
-    Alert.alert("Profile Updated", "Your profile details have been saved.");
-    onClose();
-  };
+  }, [visible, user]);
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View className="flex-1 justify-end bg-black/60">
         <View
           style={{ backgroundColor: colors.card, borderColor: colors.border }}
@@ -258,11 +344,14 @@ function ProfileModal({
         >
           <View className="flex-row items-center justify-between">
             <View>
-              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                Edit Profile
+              <Text
+                style={{ color: colors.text }}
+                className="text-xl font-extrabold"
+              >
+                Profile Details
               </Text>
               <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-                Update your personal information
+                Your saved account information
               </Text>
             </View>
 
@@ -285,55 +374,35 @@ function ProfileModal({
                 style={{ backgroundColor: colors.primary }}
                 className="h-24 w-24 items-center justify-center rounded-full"
               >
-                <Text className="text-4xl font-extrabold text-white">R</Text>
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={{ backgroundColor: colors.primarySoft }}
-                className="mt-4 rounded-full px-4 py-2"
-              >
-                <Text style={{ color: colors.primary }} className="text-xs font-extrabold">
-                  Change Photo
+                <Text className="text-4xl font-extrabold text-white">
+                  {getInitial(name)}
                 </Text>
-              </TouchableOpacity>
+              </View>
             </View>
 
             <View className="mt-7">
-              <ProfileInput
-                label="Full Name"
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter full name"
-              />
-
+              <ProfileInput label="Full Name" value={name} editable={false} />
               <ProfileInput
                 label="Phone Number"
                 value={phone}
-                onChangeText={setPhone}
-                placeholder="Enter phone number"
-                keyboardType="phone-pad"
+                editable={false}
               />
-
               <ProfileInput
                 label="Email Address"
                 value={email}
-                onChangeText={setEmail}
-                placeholder="Enter email address"
-                keyboardType="email-address"
-                autoCapitalize="none"
+                editable={false}
                 last
               />
             </View>
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={handleSave}
+              onPress={onClose}
               style={{ backgroundColor: colors.primary }}
               className="mt-7 rounded-2xl py-4"
             >
               <Text className="text-center text-base font-extrabold text-white">
-                Save Changes
+                Close
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -346,18 +415,12 @@ function ProfileModal({
 function ProfileInput({
   label,
   value,
-  onChangeText,
-  placeholder,
-  keyboardType,
-  autoCapitalize,
+  editable = true,
   last,
 }: {
   label: string;
   value: string;
-  onChangeText: (value: string) => void;
-  placeholder: string;
-  keyboardType?: "default" | "email-address" | "phone-pad";
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  editable?: boolean;
   last?: boolean;
 }) {
   const { colors } = useAppTheme();
@@ -376,12 +439,9 @@ function ProfileInput({
         className="rounded-2xl px-4 py-3"
       >
         <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
+          value={value || "Not available"}
+          editable={editable}
           placeholderTextColor={colors.muted}
-          keyboardType={keyboardType}
-          autoCapitalize={autoCapitalize}
           style={{ color: colors.text }}
           className="text-base font-semibold"
         />
@@ -390,16 +450,28 @@ function ProfileInput({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   const { colors } = useAppTheme();
 
   return (
     <View className="mt-7">
-      <Text style={{ color: colors.muted }} className="mb-2 px-1 text-xs font-extrabold uppercase tracking-wider">
+      <Text
+        style={{ color: colors.muted }}
+        className="mb-2 px-1 text-xs font-extrabold uppercase tracking-wider"
+      >
         {title}
       </Text>
 
-      <View style={{ backgroundColor: colors.card, borderColor: colors.border }} className="overflow-hidden rounded-[26px] border">
+      <View
+        style={{ backgroundColor: colors.card, borderColor: colors.border }}
+        className="overflow-hidden rounded-[26px] border"
+      >
         {children}
       </View>
     </View>
@@ -410,11 +482,20 @@ function StatCard({ label, value }: { label: string; value: string }) {
   const { colors } = useAppTheme();
 
   return (
-    <View style={{ backgroundColor: colors.card, borderColor: colors.border }} className="flex-1 rounded-[24px] border p-4">
-      <Text style={{ color: colors.text }} className="text-center text-xl font-extrabold">
+    <View
+      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      className="flex-1 rounded-[24px] border p-4"
+    >
+      <Text
+        style={{ color: colors.text }}
+        className="text-center text-xl font-extrabold"
+      >
         {value}
       </Text>
-      <Text style={{ color: colors.muted }} className="mt-1 text-center text-xs">
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-center text-xs"
+      >
         {label}
       </Text>
     </View>
@@ -444,7 +525,10 @@ function MenuItem({
       style={{ borderBottomColor: last ? "transparent" : colors.border }}
       className="flex-row items-center gap-3 border-b px-4 py-4"
     >
-      <View style={{ backgroundColor: colors.primarySoft }} className="h-10 w-10 items-center justify-center rounded-xl">
+      <View
+        style={{ backgroundColor: colors.primarySoft }}
+        className="h-10 w-10 items-center justify-center rounded-xl"
+      >
         {icon}
       </View>
 
@@ -460,4 +544,8 @@ function MenuItem({
       <ChevronRight size={18} color={colors.muted} />
     </TouchableOpacity>
   );
+}
+
+function getInitial(name?: string) {
+  return name?.trim()?.charAt(0)?.toUpperCase() || "U";
 }

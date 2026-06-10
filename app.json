@@ -18,7 +18,12 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.pintu7787.carpooling"
+      "package": "com.pintu7787.carpooling",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -43,6 +48,13 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#0066CC"
+        }
+      ],
+      [
         "react-native-maps",
         {
           "androidGoogleMapsApiKey": "AIzaSyAT_WlCKlTuACBjBlObyQ9Rv22nDBFaypo"
@@ -53,6 +65,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "af801575-a894-41b8-abe4-b0d9696097ad"
+      }
+    },
+    "owner": "pintu7787"
   }
 }
