@@ -41,7 +41,7 @@ function mapApiRide(ride: any) {
     price: Number(ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
-    rating: Number(ride.vehicle_rating || 4.8),
+    rating: Number(ride.driver_rating || 4.8),
     car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
     pickupCoordinate: {
       latitude: Number(ride.source_lat),

@@ -36,6 +36,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+google-services.json
+carpool-a824c-firebase-adminsdk-fbsvc-134eae910d.json
 
 example
 

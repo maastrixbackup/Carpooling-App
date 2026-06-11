@@ -31,7 +31,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 const filters = ["All", "Today", "Tomorrow", "This Week"];
-
 type SortType = "recommended" | "price_low" | "rating_high";
 
 function getDateByFilter(filter: string) {
@@ -62,7 +61,8 @@ function mapApiRideToCard(ride: any) {
     price: Number(ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
-    rating: Number(ride.vehicle_rating || 4.8),
+    rating: Number(ride.driver_rating || 4.8),
+    total_rides: Number(ride.driver_total_rides || 0),
     car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
     pickup: shortAddress(ride.source_address).split(",")[0],
     drop: shortAddress(ride.destination_address),
@@ -79,7 +79,6 @@ function mapApiRideToCard(ride: any) {
 
 export default function RidesScreen() {
   const { colors } = useAppTheme();
-
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -113,11 +112,11 @@ export default function RidesScreen() {
 
     const searched = query
       ? mapped.filter((ride: any) => {
-          const routeText =
-            `${ride.from} ${ride.to} ${ride.pickup} ${ride.drop} ${ride.car} ${ride.driver}`.toLowerCase();
+        const routeText =
+          `${ride.from} ${ride.to} ${ride.pickup} ${ride.drop} ${ride.car} ${ride.driver}`.toLowerCase();
 
-          return routeText.includes(query);
-        })
+        return routeText.includes(query);
+      })
       : mapped;
 
     if (sortType === "price_low") {
@@ -208,9 +207,8 @@ export default function RidesScreen() {
                   <Text style={{ color: colors.muted }} className="mt-1 text-xs">
                     {isLoading
                       ? "Loading rides..."
-                      : `${rides.length} matching ride${
-                          rides.length === 1 ? "" : "s"
-                        } found`}
+                      : `${rides.length} matching ride${rides.length === 1 ? "" : "s"
+                      } found`}
                   </Text>
                 </View>
 

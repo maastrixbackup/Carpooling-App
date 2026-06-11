@@ -42,7 +42,8 @@ function mapRide(ride: any) {
     price: Number(ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
-    rating: Number(ride.vehicle_rating || 4.8),
+    rating: Number(ride.driver_rating || 4.8),
+    total_rides: Number(ride.driver_total_rides || 0),
     car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
     pickup: shortAddress(ride.source_address),
     drop: shortAddress(ride.destination_address),
@@ -362,7 +363,7 @@ export default function RideDetailsScreen() {
                   <View className="mt-1 flex-row items-center gap-1">
                     <Star size={15} color="#F59E0B" fill="#F59E0B" />
                     <Text style={{ color: colors.muted }} className="text-sm font-semibold">
-                      {ride.rating.toFixed(1)} rating
+                      {ride.rating.toFixed(1)} rating • ({ride.total_rides} rides)
                     </Text>
                   </View>
                 </View>

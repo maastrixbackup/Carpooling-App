@@ -22,6 +22,7 @@ type RideCardProps = {
     seats: number;
     driver: string;
     rating: number;
+    total_rides: number;
     car: string;
     pickup: string;
     drop: string;
@@ -150,7 +151,7 @@ export function RideCard({ ride }: RideCardProps) {
               {ride.driver}
             </Text>
             <Text style={{ color: colors.muted }} className="text-xs font-medium">
-              Driver • {ride.rating.toFixed(1)} rating
+              Driver • {ride.rating.toFixed(1)} rating •  ({ride.total_rides} rides)
             </Text>
           </View>
         </View>
