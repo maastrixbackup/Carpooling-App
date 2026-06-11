@@ -28,6 +28,16 @@ export async function signupApi(payload: SignupPayload) {
   });
 }
 
+export async function refreshTokenApi(refreshToken: string) {
+  return apiClient("/auth/refresh", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({
+      refresh_token: refreshToken,
+    }),
+  });
+}
+
 export async function meApi() {
   return apiClient("/auth/me", {
     method: "GET",
