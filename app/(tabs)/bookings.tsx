@@ -1,4 +1,5 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
+import { shortAddress } from "@/hooks/address-trimmer";
 import {
   cancelBookingApi,
   getMyBookingsApi,
@@ -29,7 +30,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
-type BookingStatus = "upcoming" | "completed" | "cancelled";
+type BookingStatus = "upcoming" | "completed" | "cancelled" | "pending";
 
 type BookingUi = {
   id: string;
@@ -50,6 +51,7 @@ type BookingUi = {
 
 const bookingTabs: { label: string; value: BookingStatus | "all" }[] = [
   { label: "All", value: "all" },
+  { label: "Pending", value: "pending" },
   { label: "Upcoming", value: "upcoming" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
@@ -102,7 +104,7 @@ export default function BookingsScreen() {
   }, [bookings, search, activeTab]);
 
   const upcomingCount = bookings.filter(
-    (item) => item.bookingStatus === "upcoming"
+    (item) => item.bookingStatus === "upcoming" || item.bookingStatus === "pending"
   ).length;
 
   const completedCount = bookings.filter(
@@ -520,50 +522,49 @@ function EmptyBookings() {
 }
 
 function mapBookingToUi(booking: any): BookingUi {
-  const sourceAddress = booking.ride_source || "";
-  const destinationAddress = booking.ride_destination || "";
-
   return {
     id: String(booking.id),
-    code: booking.booking_code || `#${booking.id}`,
-    from: shortAddress(sourceAddress),
-    to: shortAddress(destinationAddress),
-    pickup: shortAddress(sourceAddress),
-    drop: shortAddress(destinationAddress),
-    date: booking.ride_date || "",
-    time: booking.ride_time || "",
-    price: Number(booking.total_price || 0),
+
+    code: booking.code || booking.booking_code || `#${booking.id}`,
+
+    from: booking.from || "",
+    to: booking.to || "",
+
+    pickup: booking.pickup || booking.from || "",
+    drop: booking.drop || booking.to || "",
+
+    date: booking.date || booking.ride_date || "",
+    time: booking.time || booking.ride_time || "",
+
+    price: Number(booking.price || booking.total_price || 0),
+
     seats: Number(booking.seats || 1),
-    driver: booking.driver_name || "Driver",
-    car:
-      `${booking.brand || ""} ${booking.model || ""}`.trim() ||
-      "Vehicle",
-    paymentStatus: booking.payment_status || "unpaid",
-    bookingStatus: normalizeBookingStatus(booking.status),
+
+    driver: booking.driver || "Driver",
+
+    car: booking.car || "Vehicle",
+
+    paymentStatus:
+      booking.paymentStatus ||
+      booking.payment_status ||
+      "unpaid",
+
+    bookingStatus: normalizeBookingStatus(
+      booking.bookingStatus || booking.status,
+    ),
   };
 }
 
 function normalizeBookingStatus(status?: string): BookingStatus {
   const value = String(status || "").toLowerCase();
-
   if (["completed", "complete"].includes(value)) return "completed";
-
   if (["cancelled", "canceled", "rejected"].includes(value)) {
     return "cancelled";
   }
-
+  if (["pending", "payment_pending"].includes(value)) {
+    return "pending";
+  }
   return "upcoming";
-}
-
-function shortAddress(address?: string) {
-  if (!address) return "";
-
-  return address
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(", ");
 }
 
 function formatDisplayDate(value?: string) {
@@ -613,6 +614,14 @@ function getStatusTheme(
       label: "Cancelled",
       bg: colors.dangerSoft,
       text: colors.danger,
+    };
+  }
+
+  if (status === "pending") {
+    return {
+      label: "Pending",
+      bg: "rgba(245,158,11,0.14)",
+      text: "#F59E0B",
     };
   }
 

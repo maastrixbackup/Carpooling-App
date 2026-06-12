@@ -72,7 +72,10 @@ export default function RideDetailsScreen() {
 
   const totalPrice = useMemo(() => {
     if (!ride) return 0;
-    return ride.price * selectedSeats;
+    const routeKm = ride.distanceMeters / 1000;
+    return Math.round(
+      ride.price * routeKm * selectedSeats
+    );
   }, [ride, selectedSeats]);
 
   const bookingMutation = useMutation({
@@ -293,8 +296,11 @@ export default function RideDetailsScreen() {
               className="mt-5 rounded-2xl px-4 py-3"
             >
               <Text style={{ color: colors.primary }} className="text-sm font-extrabold">
-                {selectedSeats} seat{selectedSeats > 1 ? "s" : ""} × ₹{ride.price} = ₹
-                {totalPrice}
+                {selectedSeats} seat{selectedSeats > 1 ? "s" : ""} ×
+                ₹{ride.price}/km ×
+                {(ride.distanceMeters / 1000).toFixed(1)} km
+                =
+                ₹{totalPrice}
               </Text>
             </View>
           </SectionCard>
