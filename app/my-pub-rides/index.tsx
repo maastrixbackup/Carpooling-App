@@ -285,7 +285,7 @@ function RideCard({ ride, now }: { ride: PublishedRide; now: Date }) {
       >
         <View>
           <Text style={{ color: colors.muted }} className="text-xs font-bold">
-            Price / Seat
+            Price / KM
           </Text>
           <Text
             style={{ color: colors.primary }}

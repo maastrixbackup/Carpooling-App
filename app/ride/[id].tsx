@@ -39,7 +39,7 @@ function mapRide(ride: any) {
     fullTo: ride.destination_address,
     date: ride.ride_date,
     time: ride.departure_time,
-    price: Number(ride.price_per_seat || 0),
+    price: Number(ride.price_per_km || ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
     rating: Number(ride.driver_rating || 4.8),
@@ -229,7 +229,7 @@ export default function RideDetailsScreen() {
           <View className="mt-5 flex-row gap-3">
             <MiniStat
               icon={<IndianRupee size={17} color={colors.primary} />}
-              label="Per Seat"
+              label="Per KM"
               value={`₹${ride.price}`}
             />
             <MiniStat

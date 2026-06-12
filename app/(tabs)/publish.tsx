@@ -124,18 +124,27 @@ export default function PublishRideScreen() {
     null,
   );
   const [loadingRoutes, setLoadingRoutes] = useState(false);
-
   const [selectedDate, setSelectedDate] = useState<DateOption>(dates[0]);
   const [time, setTime] = useState("09:30 AM");
   const [seats, setSeats] = useState(3);
-  const [price, setPrice] = useState(120);
+  const [pricePerKm, setPricePerKm] = useState(10);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
     null,
   );
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [dateModalVisible, setDateModalVisible] = useState(false);
 
-  const totalPotential = useMemo(() => seats * price, [seats, price]);
+  const selectedRoute = routes.find(
+    route => (route.route_index ?? 0) === selectedRouteIndex
+  );
+
+  const estimatedFullRoutePrice = useMemo(() => {
+    if (!selectedRoute?.distance_meters) return 0;
+    const distanceKm = selectedRoute.distance_meters / 1000;
+    return Math.round(
+      distanceKm * pricePerKm * seats
+    );
+  }, [selectedRoute, pricePerKm, seats]);
 
   const { data: vehiclesResponse, isLoading: vehiclesLoading } = useQuery({
     queryKey: ["my-vehicles"],
@@ -160,7 +169,7 @@ export default function PublishRideScreen() {
     !!time.trim() &&
     !!selectedVehicleId &&
     seats > 0 &&
-    price > 0 &&
+    pricePerKm > 0 &&
     selectedRouteIndex !== null;
 
   const publishMutation = useMutation({
@@ -382,8 +391,8 @@ export default function PublishRideScreen() {
         smoking_allowed: "no",
         instant_booking: "yes",
         max_two_in_back: "yes",
-
-        price_per_seat: price,
+        price_per_km: pricePerKm,
+        price_per_seat: 0,
         total_seats: seats,
         available_seats: seats,
       });
@@ -688,7 +697,10 @@ export default function PublishRideScreen() {
               )}
             </Card>
 
-            <SectionTitle title="Seats & Price" subtitle="Control availability and earning per seat." />
+            <SectionTitle
+              title="Seats & KM Price"
+              subtitle="Passengers will pay based on the distance they travel."
+            />
 
             <View className="flex-row gap-3">
               <CounterCard
@@ -701,11 +713,11 @@ export default function PublishRideScreen() {
 
               <CounterCard
                 icon={<IndianRupee size={20} color={colors.primary} />}
-                label="Price"
-                value={price}
+                label="Per KM"
+                value={pricePerKm}
                 prefix="₹"
-                onMinus={() => setPrice((prev) => Math.max(50, prev - 10))}
-                onPlus={() => setPrice((prev) => prev + 10)}
+                onMinus={() => setPricePerKm((prev) => Math.max(1, prev - 1))}
+                onPlus={() => setPricePerKm((prev) => prev + 1)}
               />
             </View>
 
@@ -719,7 +731,9 @@ export default function PublishRideScreen() {
                     Estimated earning
                   </Text>
                   <Text style={{ color: colors.text }} className="mt-2 text-3xl font-extrabold">
-                    ₹{totalPotential}
+                    {estimatedFullRoutePrice > 0
+                      ? `₹${estimatedFullRoutePrice}`
+                      : "--"}
                   </Text>
                 </View>
 
@@ -728,13 +742,13 @@ export default function PublishRideScreen() {
                   className="rounded-2xl px-4 py-2"
                 >
                   <Text style={{ color: colors.primary }} className="text-xs font-extrabold">
-                    {seats} × ₹{price}
+                    {seats} seat{seats > 1 ? "s" : ""} × ₹{pricePerKm}/km
                   </Text>
                 </View>
               </View>
 
               <Text style={{ color: colors.muted }} className="mt-3 text-xs leading-5">
-                Based on {seats} available seat{seats > 1 ? "s" : ""}. Final earning may change after passenger bookings.
+                Estimated for full route. Passengers can book partial route and pay only for their travelled distance.
               </Text>
             </View>
 
@@ -769,7 +783,7 @@ export default function PublishRideScreen() {
               </View>
 
               <Text style={{ color: colors.primary }} className="text-xl font-extrabold">
-                ₹{price}
+                ₹{pricePerKm}/km
               </Text>
             </View>
 

@@ -714,7 +714,7 @@ function EditRideModal({
                         <View className="gap-4">
                             <View>
                                 <Text style={{ color: colors.muted }} className="mb-2 text-xs font-bold uppercase">
-                                    Price per seat
+                                    Price per KM
                                 </Text>
                                 <View
                                     style={{ backgroundColor: colors.input }}
