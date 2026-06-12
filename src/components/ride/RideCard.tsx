@@ -91,7 +91,7 @@ export function RideCard({ ride }: RideCardProps) {
             ₹{ride.price}
           </Text>
           <Text style={{ color: colors.muted }} className="text-[10px] font-bold">
-            per seat
+            per km
           </Text>
         </View>
       </View>
@@ -132,7 +132,7 @@ export function RideCard({ ride }: RideCardProps) {
         </View>
       </View>
 
-      <View
+      {/* <View
         style={{ borderTopColor: colors.border }}
         className="mt-5 flex-row items-center justify-between border-t pt-4"
       >
@@ -159,7 +159,7 @@ export function RideCard({ ride }: RideCardProps) {
         <Text style={{ color: colors.primary }} className="text-sm font-extrabold">
           Details
         </Text>
-      </View>
+      </View> */}
     </Pressable>
   );
 }

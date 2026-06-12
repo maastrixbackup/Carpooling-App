@@ -9,11 +9,11 @@ export async function publishRideApi(payload: any) {
 
 export async function getRidesApi(params?: any) {
   const query = new URLSearchParams();
-
-  if (params?.source) query.append("source", params.source);
-  if (params?.destination) query.append("destination", params.destination);
-  if (params?.ride_date) query.append("ride_date", params.ride_date);
-  if (params?.min_seats) query.append("min_seats", String(params.min_seats));
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.append(key, String(value));
+    }
+  });
 
   return apiClient(`/rides${query.toString() ? `?${query}` : ""}`, {
     method: "GET",

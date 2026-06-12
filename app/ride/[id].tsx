@@ -39,7 +39,7 @@ function mapRide(ride: any) {
     fullTo: ride.destination_address,
     date: ride.ride_date,
     time: ride.departure_time,
-    price: Number(ride.price_per_seat || 0),
+    price: Number(ride.price_per_km || ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
     rating: Number(ride.driver_rating || 4.8),
@@ -72,7 +72,10 @@ export default function RideDetailsScreen() {
 
   const totalPrice = useMemo(() => {
     if (!ride) return 0;
-    return ride.price * selectedSeats;
+    const routeKm = ride.distanceMeters / 1000;
+    return Math.round(
+      ride.price * routeKm * selectedSeats
+    );
   }, [ride, selectedSeats]);
 
   const bookingMutation = useMutation({
@@ -229,7 +232,7 @@ export default function RideDetailsScreen() {
           <View className="mt-5 flex-row gap-3">
             <MiniStat
               icon={<IndianRupee size={17} color={colors.primary} />}
-              label="Per Seat"
+              label="Per KM"
               value={`₹${ride.price}`}
             />
             <MiniStat
@@ -293,8 +296,11 @@ export default function RideDetailsScreen() {
               className="mt-5 rounded-2xl px-4 py-3"
             >
               <Text style={{ color: colors.primary }} className="text-sm font-extrabold">
-                {selectedSeats} seat{selectedSeats > 1 ? "s" : ""} × ₹{ride.price} = ₹
-                {totalPrice}
+                {selectedSeats} seat{selectedSeats > 1 ? "s" : ""} ×
+                ₹{ride.price}/km ×
+                {(ride.distanceMeters / 1000).toFixed(1)} km
+                =
+                ₹{totalPrice}
               </Text>
             </View>
           </SectionCard>

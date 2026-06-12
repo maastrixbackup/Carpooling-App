@@ -6,5 +6,5 @@ export function shortAddress(address?: string) {
     .map((item) => item.trim())
     .filter(Boolean);
 
-  return parts.slice(0, 3).join(", ");
+  return parts.slice(0, 2).join(", ");
 }

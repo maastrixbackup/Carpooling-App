@@ -38,7 +38,7 @@ function mapApiRide(ride: any) {
     to: shortAddress(ride.destination_address),
     pickup: shortAddress(ride.source_address).split(",")[0],
     drop: shortAddress(ride.destination_address),
-    price: Number(ride.price_per_seat || 0),
+    price: Number(ride.price_per_km || ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
     rating: Number(ride.driver_rating || 4.8),
@@ -412,7 +412,7 @@ export default function RideMapScreen() {
               ₹{ride.price}
             </Text>
             <Text style={{ color: colors.muted }} className="text-[10px] font-bold">
-              per seat
+              per KM
             </Text>
           </View>
         </View>

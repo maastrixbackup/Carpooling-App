@@ -1,5 +1,10 @@
 import { RideCard } from "@/components/ride/RideCard";
 import { shortAddress } from "@/hooks/address-trimmer";
+import {
+  getPlaceDetails,
+  PlaceSuggestion,
+  searchIndiaPlaces,
+} from "@/services/location.service";
 import { getRidesApi } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -14,10 +19,11 @@ import {
   Users,
   X,
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Modal,
   Platform,
   RefreshControl,
@@ -32,6 +38,13 @@ import { toast } from "sonner-native";
 
 const filters = ["All", "Today", "Tomorrow", "This Week"];
 type SortType = "recommended" | "price_low" | "rating_high";
+
+type PickedPlace = {
+  address: string;
+  placeId?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 function getDateByFilter(filter: string) {
   const date = new Date();
@@ -50,57 +63,117 @@ function getDateByFilter(filter: string) {
 
   return `${yyyy}-${mm}-${dd}`;
 }
-
 function mapApiRideToCard(ride: any) {
+  const vehicle = ride.vehicles || {
+    brand: ride.vehicle_brand,
+    model: ride.vehicle_model,
+    registration_number: ride.vehicle_registration_number,
+    color: ride.vehicle_color,
+    rating: ride.driver_rating,
+  };
+
   return {
     id: String(ride.id),
+
     from: shortAddress(ride.source_address),
     to: shortAddress(ride.destination_address),
+
     date: ride.ride_date,
     time: ride.departure_time,
-    price: Number(ride.price_per_seat || 0),
+
+    price: Number(
+      ride.price_per_km ||
+      ride.price_per_seat ||
+      0,
+    ),
+
     seats: Number(ride.available_seats || 0),
+
     driver: ride.driver_name || "Driver",
-    rating: Number(ride.driver_rating || 4.8),
+
+    rating: Number(ride.driver_rating || 0),
+
     total_rides: Number(ride.driver_total_rides || 0),
-    car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
+
+    car:
+      `${vehicle.brand || ""} ${vehicle.model || ""}`.trim() ||
+      "Vehicle",
+
     pickup: shortAddress(ride.source_address).split(",")[0],
+
     drop: shortAddress(ride.destination_address),
+
     pickupCoordinate: {
       latitude: Number(ride.source_lat),
       longitude: Number(ride.source_lng),
     },
+
     dropCoordinate: {
       latitude: Number(ride.destination_lat),
       longitude: Number(ride.destination_lng),
     },
+
+    bookingDistanceKm: Number(
+      ride.booking_distance_km || 0,
+    ),
+
+    matchType: ride.match_type || "full_route",
+
+    isVerified: Boolean(ride.is_verified),
+
+    profilePicture: ride.profile_picture || null,
+
+    vehicleColor: vehicle.color || null,
+    vehicleRegistration:
+      vehicle.registration_number || null,
   };
 }
 
 export default function RidesScreen() {
   const { colors } = useAppTheme();
-  const [search, setSearch] = useState("");
+
   const [activeFilter, setActiveFilter] = useState("All");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [minSeats, setMinSeats] = useState(1);
   const [sortType, setSortType] = useState<SortType>("recommended");
 
-  const rideDate = useMemo(
-    () => getDateByFilter(activeFilter),
-    [activeFilter]
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  const [fromPlace, setFromPlace] = useState<PickedPlace>({ address: "" });
+  const [toPlace, setToPlace] = useState<PickedPlace>({ address: "" });
+
+  const rideDate = useMemo(() => getDateByFilter(activeFilter), [activeFilter]);
+
+  const hasRouteSearch = Boolean(
+    fromPlace.latitude &&
+    fromPlace.longitude &&
+    toPlace.latitude &&
+    toPlace.longitude,
   );
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: ["rides", activeFilter, minSeats],
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: [
+      "rides",
+      activeFilter,
+      minSeats,
+      fromPlace.latitude,
+      fromPlace.longitude,
+      toPlace.latitude,
+      toPlace.longitude,
+    ],
     queryFn: () =>
       getRidesApi({
         ride_date: rideDate,
         min_seats: minSeats,
+
+        source: hasRouteSearch ? undefined : from,
+        destination: hasRouteSearch ? undefined : to,
+
+        source_lat: hasRouteSearch ? fromPlace.latitude : undefined,
+        source_lng: hasRouteSearch ? fromPlace.longitude : undefined,
+        destination_lat: hasRouteSearch ? toPlace.latitude : undefined,
+        destination_lng: hasRouteSearch ? toPlace.longitude : undefined,
       }),
   });
 
@@ -108,37 +181,26 @@ export default function RidesScreen() {
     const apiRides = data?.data?.rides || [];
     const mapped = apiRides.map(mapApiRideToCard);
 
-    const query = search.trim().toLowerCase();
-
-    const searched = query
-      ? mapped.filter((ride: any) => {
-        const routeText =
-          `${ride.from} ${ride.to} ${ride.pickup} ${ride.drop} ${ride.car} ${ride.driver}`.toLowerCase();
-
-        return routeText.includes(query);
-      })
-      : mapped;
-
     if (sortType === "price_low") {
-      return [...searched].sort((a: any, b: any) => a.price - b.price);
+      return [...mapped].sort((a: any, b: any) => a.price - b.price);
     }
 
     if (sortType === "rating_high") {
-      return [...searched].sort((a: any, b: any) => b.rating - a.rating);
+      return [...mapped].sort((a: any, b: any) => b.rating - a.rating);
     }
 
-    return searched;
-  }, [data, search, sortType]);
+    return mapped;
+  }, [data, sortType]);
 
   const totalSeats = useMemo(
     () => rides.reduce((sum: number, ride: any) => sum + ride.seats, 0),
-    [rides]
+    [rides],
   );
 
   const cheapestRide = useMemo(() => {
     if (!rides.length) return null;
     return rides.reduce((min: any, ride: any) =>
-      ride.price < min.price ? ride : min
+      ride.price < min.price ? ride : min,
     );
   }, [rides]);
 
@@ -148,6 +210,16 @@ export default function RidesScreen() {
     } catch {
       toast.error("Unable to refresh rides.");
     }
+  };
+
+  const clearFrom = () => {
+    setFrom("");
+    setFromPlace({ address: "" });
+  };
+
+  const clearTo = () => {
+    setTo("");
+    setToPlace({ address: "" });
   };
 
   return (
@@ -171,8 +243,14 @@ export default function RidesScreen() {
               <Header />
 
               <SearchPanel
-                search={search}
-                setSearch={setSearch}
+                from={from}
+                to={to}
+                setFrom={setFrom}
+                setTo={setTo}
+                setFromPlace={setFromPlace}
+                setToPlace={setToPlace}
+                clearFrom={clearFrom}
+                clearTo={clearTo}
                 activeFilter={activeFilter}
                 setActiveFilter={setActiveFilter}
                 onOpenFilters={() => setFilterModalVisible(true)}
@@ -204,6 +282,7 @@ export default function RidesScreen() {
                   >
                     Available Rides
                   </Text>
+
                   <Text style={{ color: colors.muted }} className="mt-1 text-xs">
                     {isLoading
                       ? "Loading rides..."
@@ -233,9 +312,7 @@ export default function RidesScreen() {
             </>
           }
           renderItem={({ item }) => <RideCard ride={item} />}
-          ListEmptyComponent={
-            isLoading ? <LoadingState /> : <EmptyState />
-          }
+          ListEmptyComponent={isLoading ? <LoadingState /> : <EmptyState />}
         />
 
         <FilterModal
@@ -284,14 +361,26 @@ function Header() {
 }
 
 function SearchPanel({
-  search,
-  setSearch,
+  from,
+  to,
+  setFrom,
+  setTo,
+  setFromPlace,
+  setToPlace,
+  clearFrom,
+  clearTo,
   activeFilter,
   setActiveFilter,
   onOpenFilters,
 }: {
-  search: string;
-  setSearch: (value: string) => void;
+  from: string;
+  to: string;
+  setFrom: (value: string) => void;
+  setTo: (value: string) => void;
+  setFromPlace: (place: PickedPlace) => void;
+  setToPlace: (place: PickedPlace) => void;
+  clearFrom: () => void;
+  clearTo: () => void;
   activeFilter: string;
   setActiveFilter: (value: string) => void;
   onOpenFilters: () => void;
@@ -303,28 +392,39 @@ function SearchPanel({
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
       className="mt-6 rounded-[32px] border p-4"
     >
-      <View className="flex-row gap-3">
-        <View
-          style={{ backgroundColor: colors.input }}
-          className="h-14 flex-1 flex-row items-center gap-3 rounded-2xl px-4"
-        >
-          <Search size={18} color={colors.muted} />
+      <PlaceInput
+        icon={<MapPin size={18} color={colors.primary} />}
+        label="From"
+        value={from}
+        placeholder="Choose pickup location"
+        onChangeText={(value) => {
+          setFrom(value);
+          setFromPlace({ address: value });
+        }}
+        onClear={clearFrom}
+        onSelectPlace={(place) => {
+          setFrom(place.address);
+          setFromPlace(place);
+        }}
+      />
 
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search city, route, car, driver"
-            placeholderTextColor={colors.muted}
-            autoCorrect={false}
-            style={{ color: colors.text }}
-            className="flex-1 text-base font-semibold"
+      <View className="mt-3 flex-row gap-3">
+        <View className="flex-1">
+          <PlaceInput
+            icon={<Search size={18} color={colors.success} />}
+            label="To"
+            value={to}
+            placeholder="Choose destination"
+            onChangeText={(value) => {
+              setTo(value);
+              setToPlace({ address: value });
+            }}
+            onClear={clearTo}
+            onSelectPlace={(place) => {
+              setTo(place.address);
+              setToPlace(place);
+            }}
           />
-
-          {search.length > 0 && (
-            <TouchableOpacity activeOpacity={0.8} onPress={() => setSearch("")}>
-              <X size={17} color={colors.muted} />
-            </TouchableOpacity>
-          )}
         </View>
 
         <TouchableOpacity
@@ -369,6 +469,172 @@ function SearchPanel({
           );
         })}
       </ScrollView>
+    </View>
+  );
+}
+
+function PlaceInput({
+  icon,
+  label,
+  value,
+  placeholder,
+  onChangeText,
+  onSelectPlace,
+  onClear,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  placeholder: string;
+  onChangeText: (value: string) => void;
+  onSelectPlace: (place: PickedPlace) => void;
+  onClear: () => void;
+}) {
+  const { colors } = useAppTheme();
+
+  const [focused, setFocused] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const timer = setTimeout(async () => {
+      try {
+        if (!focused || value.trim().length < 2) {
+          if (mounted) setSuggestions([]);
+          return;
+        }
+
+        setSearching(true);
+        const results = await searchIndiaPlaces(value);
+
+        if (mounted) {
+          setSuggestions(results);
+        }
+      } catch (error) {
+        console.log("PLACE SEARCH ERROR:", error);
+      } finally {
+        if (mounted) setSearching(false);
+      }
+    }, 350);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [value, focused]);
+
+  const handleSelect = async (place: PlaceSuggestion) => {
+    try {
+      setSearching(true);
+
+      const details = await getPlaceDetails(place.place_id);
+
+      onSelectPlace({
+        address: details.address,
+        placeId: details.placeId,
+        latitude: details.latitude,
+        longitude: details.longitude,
+      });
+
+      setSuggestions([]);
+      setFocused(false);
+      Keyboard.dismiss();
+    } catch (error) {
+      console.log("PLACE DETAILS ERROR:", error);
+      toast.error("Unable to select this location.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <View>
+      <View
+        style={{ backgroundColor: colors.input }}
+        className="min-h-[56px] flex-row items-center gap-3 rounded-2xl px-4 py-3"
+      >
+        {icon}
+
+        <View className="flex-1">
+          <Text style={{ color: colors.muted }} className="mb-1 text-xs font-bold uppercase">
+            {label}
+          </Text>
+
+          <TextInput
+            value={value}
+            onFocus={() => setFocused(true)}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor={colors.muted}
+            autoCorrect={false}
+            style={{ color: colors.text }}
+            className="text-base font-semibold"
+          />
+        </View>
+
+        {searching && <ActivityIndicator size="small" color={colors.primary} />}
+
+        {value.length > 0 && !searching && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => {
+              onClear();
+              setSuggestions([]);
+            }}
+            className="h-9 w-9 items-center justify-center rounded-full"
+            style={{ backgroundColor: colors.card }}
+          >
+            <X size={16} color={colors.muted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {focused && suggestions.length > 0 && (
+        <View
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="mt-2 overflow-hidden rounded-2xl border"
+        >
+          {suggestions.map((item) => (
+            <TouchableOpacity
+              key={item.place_id}
+              activeOpacity={0.85}
+              onPress={() => handleSelect(item)}
+              style={{ borderBottomColor: colors.border }}
+              className="flex-row items-start gap-3 border-b px-4 py-3"
+            >
+              <View
+                style={{ backgroundColor: colors.primarySoft }}
+                className="mt-0.5 h-9 w-9 items-center justify-center rounded-full"
+              >
+                <MapPin size={16} color={colors.primary} />
+              </View>
+
+              <View className="flex-1">
+                <Text
+                  style={{ color: colors.text }}
+                  className="font-extrabold"
+                  numberOfLines={1}
+                >
+                  {item.main_text}
+                </Text>
+
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-1 text-xs font-semibold"
+                  numberOfLines={2}
+                >
+                  {item.secondary_text || item.description}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
     </View>
   );
 }

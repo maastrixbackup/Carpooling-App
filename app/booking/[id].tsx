@@ -1,4 +1,5 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
+import { shortAddress } from "@/hooks/address-trimmer";
 import {
   cancelBookingApi,
   getBookingByIdApi,
@@ -825,36 +826,34 @@ function SafetyRow({ text }: { text: string }) {
 }
 
 function mapBookingToDetails(booking: any): BookingDetails {
-  const source = booking.ride_source || "";
-  const destination = booking.ride_destination || "";
-
   return {
     id: String(booking.id),
-    code: booking.booking_code || `#${booking.id}`,
-    rideId: String(booking.ride_id),
-    from: shortAddress(source),
-    to: shortAddress(destination),
-    fullFrom: source,
-    fullTo: destination,
-    sourceLat: Number(booking.ride_source_lat || 0),
-    sourceLng: Number(booking.ride_source_lng || 0),
-    destinationLat: Number(booking.ride_destination_lat || 0),
-    destinationLng: Number(booking.ride_destination_lng || 0),
-    date: booking.ride_date || "",
-    time: booking.ride_time || "",
+    code: booking.code || `#${booking.id}`,
+    rideId: String(booking.rideId || booking.ride_id || ""),
+    from: shortAddress(booking.from || ""),
+    to: shortAddress(booking.to || ""),
+    fullFrom: booking.fullFrom || booking.from || "",
+    fullTo: booking.fullTo || booking.to || "",
+    sourceLat: Number(booking.sourceLat || 0),
+    sourceLng: Number(booking.sourceLng || 0),
+    destinationLat: Number(booking.destinationLat || 0),
+    destinationLng: Number(booking.destinationLng || 0),
+    date: booking.date || "",
+    time: booking.time || "",
     seats: Number(booking.seats || 1),
-    pricePerSeat: Number(booking.price_per_seat || 0),
-    totalPrice: Number(booking.total_price || 0),
+    pricePerSeat: Number(booking.pricePerSeat || 0),
+    totalPrice: Number(booking.totalPrice || 0),
     status: normalizeBookingStatus(booking.status),
-    paymentStatus: booking.payment_status || "unpaid",
-    paymentType: booking.payment_type || "cash",
-    driverName: booking.driver_name || "Driver",
-    driverPhone: booking.driver_phone || null,
-    car: `${booking.brand || ""} ${booking.model || ""}`.trim() || "Vehicle",
-    registrationNumber: booking.registration_number || "Not available",
+    paymentStatus: booking.paymentStatus || "unpaid",
+    paymentType: booking.paymentType || "cash",
+    driverName: booking.driverName || "Driver",
+    driverPhone: booking.driverPhone || null,
+    car: booking.car || "Vehicle",
+    registrationNumber:
+      booking.registrationNumber || "Not available",
     color: booking.color || "Vehicle",
-    driverId: String(booking.driver_id || ""),
-    hasReviewed: Boolean(booking.has_reviewed),
+    driverId: String(booking.driverId || ""),
+    hasReviewed: Boolean(booking.hasReviewed),
   };
 }
 
@@ -866,17 +865,6 @@ function normalizeBookingStatus(status?: string): BookingStatus {
   if (["completed", "complete"].includes(value)) return "completed";
 
   return "pending";
-}
-
-function shortAddress(address?: string) {
-  if (!address) return "";
-
-  return address
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(", ");
 }
 
 function formatDisplayDate(value?: string) {
