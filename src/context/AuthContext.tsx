@@ -1,19 +1,22 @@
 import { logger } from "@/lib/logger";
 import {
-    clearAccessToken,
-    getAccessToken,
-    saveAccessToken,
+  clearAuthTokens,
+  getAccessToken,
+  saveAuthTokens,
 } from "@/lib/storage";
 import { loginApi, logoutApi, meApi, signupApi } from "@/services/auth.service";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type User = {
-  id: number;
-  name: string;
+  id: string;
+  full_name?: string;
+  name?: string;
   email: string;
   phone?: string;
-  role?: number;
+  role?: string;
+  is_verified?: boolean;
+  verification_status?: string;
 };
 
 type LoginPayload = {
@@ -40,6 +43,19 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function extractTokens(response: any) {
+  return {
+    accessToken:
+      response?.data?.access_token ||
+      response?.data?.session?.access_token ||
+      null,
+    refreshToken:
+      response?.data?.refresh_token ||
+      response?.data?.session?.refresh_token ||
+      null,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await meApi();
       setUser(response.data.user);
     } catch {
-      await clearAccessToken();
+      await clearAuthTokens();
+      queryClient.clear();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -72,15 +89,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (payload: LoginPayload) => {
     const response = await loginApi(payload);
+
     logger.auth("LOGIN SUCCESS", response);
-    await saveAccessToken(response.data.access_token);
+
+    const { accessToken, refreshToken } = extractTokens(response);
+
+    await saveAuthTokens({
+      accessToken,
+      refreshToken,
+    });
+
     setUser(response.data.user);
   };
 
   const signup = async (payload: SignupPayload) => {
     const response = await signupApi(payload);
 
-    await saveAccessToken(response.data.access_token);
+    const { accessToken, refreshToken } = extractTokens(response);
+
+    await saveAuthTokens({
+      accessToken,
+      refreshToken,
+    });
+
     setUser(response.data.user);
   };
 
@@ -88,8 +119,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await logoutApi();
     } catch {}
+
     queryClient.clear();
-    await clearAccessToken();
+    await clearAuthTokens();
     setUser(null);
   };
 
