@@ -4,6 +4,7 @@ import {
   cancelBookingApi,
   getBookingByIdApi,
 } from "@/services/booking.service";
+import { getRoomByBookingApi } from "@/services/chat.service";
 import { createReviewApi } from "@/services/review.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -13,15 +14,14 @@ import {
   Calendar,
   Car,
   CheckCircle2,
-  IndianRupee,
-  Navigation,
+  IndianRupee, MessageCircle, Navigation,
   Phone,
   ShieldCheck,
   Star,
   Ticket,
   User,
   Users,
-  XCircle,
+  XCircle
 } from "lucide-react-native";
 import { useState } from "react";
 import {
@@ -32,7 +32,7 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -159,6 +159,26 @@ export default function BookingDetailsScreen() {
     }
 
     Linking.openURL(`tel:${booking.driverPhone}`);
+  };
+
+  const handleOpenChat = async () => {
+    if (!booking) return;
+    try {
+      const response = await getRoomByBookingApi(booking.id);
+      const roomId = response?.data?.room?.id;
+      if (!roomId) {
+        toast.error("Chat room not available.");
+        return;
+      }
+      router.push({
+        pathname: "/chat/[roomId]",
+        params: {
+          roomId: String(roomId),
+        },
+      });
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to open chat.");
+    }
   };
 
   const handleViewMap = () => {
@@ -388,6 +408,21 @@ export default function BookingDetailsScreen() {
                 </Text>
               </TouchableOpacity>
             )}
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleOpenChat}
+              style={{ backgroundColor: colors.primarySoft }}
+              className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
+            >
+              <MessageCircle size={18} color={colors.primary} />
+              <Text
+                style={{ color: colors.primary }}
+                className="font-extrabold"
+              >
+                Chat with Driver
+              </Text>
+            </TouchableOpacity>
           </SectionCard>
 
           <SectionCard title="Payment Summary">
@@ -849,8 +884,7 @@ function mapBookingToDetails(booking: any): BookingDetails {
     driverName: booking.driverName || "Driver",
     driverPhone: booking.driverPhone || null,
     car: booking.car || "Vehicle",
-    registrationNumber:
-      booking.registrationNumber || "Not available",
+    registrationNumber: booking.registrationNumber || "Not available",
     color: booking.color || "Vehicle",
     driverId: String(booking.driverId || ""),
     hasReviewed: Boolean(booking.hasReviewed),

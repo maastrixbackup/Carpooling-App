@@ -1,4 +1,6 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
+import { respondToBookingApi } from "@/services/booking.service";
+import { getRoomByBookingApi } from "@/services/chat.service";
 import {
     cancelRideApi,
     completeRideApi,
@@ -13,7 +15,9 @@ import {
     ArrowLeft,
     Calendar,
     Car,
+    Check,
     IndianRupee,
+    MessageCircle,
     Minus,
     Navigation,
     Pencil,
@@ -125,6 +129,33 @@ export default function DriverRideDetailsScreen() {
         },
     });
 
+    const respondBookingMutation = useMutation({
+        mutationFn: ({
+            bookingId,
+            status,
+        }: {
+            bookingId: string;
+            status: "accepted" | "rejected";
+        }) => respondToBookingApi(bookingId, status),
+        onSuccess: async (_, variables) => {
+            toast.success(
+                variables.status === "accepted"
+                    ? "Booking accepted successfully."
+                    : "Booking rejected successfully.",
+            );
+
+            await queryClient.invalidateQueries({
+                queryKey: ["driver-ride-details", id],
+            });
+            await queryClient.invalidateQueries({ queryKey: ["my-rides"] });
+            await queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+            await queryClient.invalidateQueries({ queryKey: ["rides"] });
+        },
+        onError: (error: any) => {
+            toast.error(error?.message || "Unable to update booking.");
+        },
+    });
+
     const completeMutation = useMutation({
         mutationFn: completeRideApi,
         onSuccess: async () => {
@@ -137,6 +168,57 @@ export default function DriverRideDetailsScreen() {
             toast.error(error?.message || "Unable to complete ride.");
         },
     });
+
+    const handleRespondBooking = async (
+        booking: DriverBookingUi,
+        status: "accepted" | "rejected",
+    ) => {
+        const ok = await confirm({
+            title: status === "accepted" ? "Accept booking?" : "Reject booking?",
+            message:
+                status === "accepted"
+                    ? "Passenger will be notified and chat will be enabled."
+                    : "Passenger will be notified and seats will be released.",
+            confirmText: status === "accepted" ? "Accept" : "Reject",
+            cancelText: "Cancel",
+            danger: status === "rejected",
+            iconType: status === "accepted" ? "success" : undefined,
+        });
+
+        if (!ok) return;
+
+        respondBookingMutation.mutate({
+            bookingId: booking.id,
+            status,
+        });
+    };
+
+    const handleOpenBookingChat = async (booking: DriverBookingUi) => {
+        try {
+            if (booking.status !== "accepted") {
+                toast.error("Chat is available after accepting the booking.");
+                return;
+            }
+
+            const response = await getRoomByBookingApi(booking.id);
+            const roomId = response?.data?.room?.id;
+
+            if (!roomId) {
+                toast.error("Chat room not available.");
+                return;
+            }
+
+            router.push({
+                pathname: "/chat/[roomId]",
+                params: {
+                    roomId: String(roomId),
+                    title: booking.passengerName,
+                },
+            });
+        } catch (error: any) {
+            toast.error(error?.message || "Unable to open chat.");
+        }
+    };
 
     const handleStartRide = async () => {
         if (!ride) return;
@@ -226,7 +308,6 @@ export default function DriverRideDetailsScreen() {
 
     const handleViewMap = () => {
         if (!ride) return;
-
         router.push({
             pathname: "/ride-map/[id]" as any,
             params: { id: ride.id },
@@ -366,7 +447,13 @@ export default function DriverRideDetailsScreen() {
                     {activeTab === "overview" ? (
                         <OverviewTab ride={ride} onViewMap={handleViewMap} />
                     ) : (
-                        <BookingsTab bookings={bookings} onCallPassenger={handleCallPassenger} />
+                        <BookingsTab
+                            bookings={bookings}
+                            onCallPassenger={handleCallPassenger}
+                            onRespondBooking={handleRespondBooking}
+                            onOpenChat={handleOpenBookingChat}
+                            responding={respondBookingMutation.isPending}
+                        />
                     )}
                 </ScrollView>
 
@@ -526,9 +613,18 @@ function OverviewTab({ ride, onViewMap }: { ride: DriverRideUi; onViewMap: () =>
 function BookingsTab({
     bookings,
     onCallPassenger,
+    onRespondBooking,
+    onOpenChat,
+    responding,
 }: {
     bookings: DriverBookingUi[];
     onCallPassenger: (phone?: string | null) => void;
+    onRespondBooking: (
+        booking: DriverBookingUi,
+        status: "accepted" | "rejected",
+    ) => void;
+    onOpenChat: (booking: DriverBookingUi) => void;
+    responding?: boolean;
 }) {
     const { colors } = useAppTheme();
 
@@ -559,16 +655,37 @@ function BookingsTab({
                 <PassengerCard
                     key={booking.id}
                     booking={booking}
+                    responding={responding}
                     onCall={() => onCallPassenger(booking.passengerPhone)}
+                    onAccept={() => onRespondBooking(booking, "accepted")}
+                    onReject={() => onRespondBooking(booking, "rejected")}
+                    onChat={() => onOpenChat(booking)}
                 />
             ))}
         </View>
     );
 }
 
-function PassengerCard({ booking, onCall }: { booking: DriverBookingUi; onCall: () => void }) {
+function PassengerCard({
+    booking,
+    onCall,
+    onAccept,
+    onReject,
+    onChat,
+    responding,
+}: {
+    booking: DriverBookingUi;
+    onCall: () => void;
+    onAccept: () => void;
+    onReject: () => void;
+    onChat: () => void;
+    responding?: boolean;
+}) {
     const { colors } = useAppTheme();
     const statusTheme = getBookingStatusTheme(booking.status, colors);
+
+    const isPending = booking.status === "pending";
+    const isAccepted = booking.status === "accepted";
 
     return (
         <View
@@ -581,43 +698,124 @@ function PassengerCard({ booking, onCall }: { booking: DriverBookingUi; onCall: 
         >
             <View className="flex-row items-center justify-between gap-3">
                 <View className="flex-row flex-1 items-center gap-3">
-                    <View style={{ backgroundColor: colors.primarySoft }} className="h-12 w-12 items-center justify-center rounded-full">
+                    <View
+                        style={{ backgroundColor: colors.primarySoft }}
+                        className="h-12 w-12 items-center justify-center rounded-full"
+                    >
                         <User size={22} color={colors.primary} />
                     </View>
 
                     <View className="flex-1">
-                        <Text style={{ color: colors.text }} className="font-extrabold" numberOfLines={1}>
+                        <Text
+                            style={{ color: colors.text }}
+                            className="font-extrabold"
+                            numberOfLines={1}
+                        >
                             {booking.passengerName}
                         </Text>
-                        <Text style={{ color: colors.muted }} className="mt-1 text-xs font-semibold">
-                            {booking.seats} seat{booking.seats > 1 ? "s" : ""} • ₹{booking.totalPrice}
+
+                        <Text
+                            style={{ color: colors.muted }}
+                            className="mt-1 text-xs font-semibold"
+                        >
+                            {booking.seats} seat{booking.seats > 1 ? "s" : ""} • ₹
+                            {booking.totalPrice}
                         </Text>
                     </View>
                 </View>
 
-                <View style={{ backgroundColor: statusTheme.bg }} className="rounded-full px-3 py-1.5">
+                <View
+                    style={{ backgroundColor: statusTheme.bg }}
+                    className="rounded-full px-3 py-1.5"
+                >
                     <Text style={{ color: statusTheme.text }} className="text-xs font-bold">
                         {statusTheme.label}
                     </Text>
                 </View>
             </View>
 
-            <View style={{ borderTopColor: colors.border }} className="mt-4 flex-row items-center justify-between border-t pt-4">
-                <Text style={{ color: colors.muted }} className="text-xs font-bold">
-                    {formatDate(booking.createdAt)}
-                </Text>
-
-                <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={onCall}
-                    style={{ backgroundColor: colors.primarySoft }}
-                    className="flex-row items-center gap-2 rounded-full px-4 py-2"
-                >
-                    <Phone size={15} color={colors.primary} />
-                    <Text style={{ color: colors.primary }} className="text-xs font-bold">
-                        Call
+            <View
+                style={{ borderTopColor: colors.border }}
+                className="mt-4 border-t pt-4"
+            >
+                <View className="flex-row items-center justify-between">
+                    <Text style={{ color: colors.muted }} className="text-xs font-bold">
+                        {formatDate(booking.createdAt)}
                     </Text>
-                </TouchableOpacity>
+
+                    <View className="flex-row gap-2">
+                        <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={onCall}
+                            style={{ backgroundColor: colors.primarySoft }}
+                            className="h-10 w-10 items-center justify-center rounded-full"
+                        >
+                            <Phone size={16} color={colors.primary} />
+                        </TouchableOpacity>
+
+                        {isAccepted && (
+                            <TouchableOpacity
+                                activeOpacity={0.85}
+                                onPress={onChat}
+                                style={{ backgroundColor: colors.primary }}
+                                className="h-10 w-10 items-center justify-center rounded-full"
+                            >
+                                <MessageCircle size={17} color="#FFFFFF" />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+
+                {isPending && (
+                    <View className="mt-4 flex-row gap-3">
+                        <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={onReject}
+                            disabled={responding}
+                            style={{
+                                backgroundColor: colors.dangerSoft,
+                                opacity: responding ? 0.7 : 1,
+                            }}
+                            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-3"
+                        >
+                            <X size={16} color={colors.danger} />
+                            <Text style={{ color: colors.danger }} className="font-extrabold">
+                                Reject
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            activeOpacity={0.85}
+                            onPress={onAccept}
+                            disabled={responding}
+                            style={{
+                                backgroundColor: colors.success,
+                                opacity: responding ? 0.7 : 1,
+                            }}
+                            className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-3"
+                        >
+                            {responding ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                                <>
+                                    <Check size={16} color="#FFFFFF" />
+                                    <Text className="font-extrabold text-white">Accept</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {isAccepted && (
+                    <View
+                        style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
+                        className="mt-4 rounded-2xl px-4 py-3"
+                    >
+                        <Text style={{ color: colors.success }} className="text-xs font-bold">
+                            Booking accepted. Chat is now enabled.
+                        </Text>
+                    </View>
+                )}
             </View>
         </View>
     );
@@ -670,7 +868,7 @@ function EditRideModal({
         }
 
         onSubmit({
-            price_per_seat: priceNumber,
+            price_per_km: priceNumber,
             available_seats: availableSeats,
             pet_allowed: petAllowed ? "yes" : "no",
             smoking_allowed: smokingAllowed ? "yes" : "no",
@@ -995,7 +1193,7 @@ function mapRideToUi(ride: any): DriverRideUi {
         fullTo: ride.destination_address || "",
         date: ride.ride_date || "",
         time: ride.departure_time || "",
-        price: Number(ride.price_per_seat || 0),
+        price: Number(ride.price_per_km || ride.price_per_seat || 0),
         totalSeats: Number(ride.total_seats || 0),
         availableSeats: Number(ride.available_seats || 0),
         status: ride.status || "scheduled",
@@ -1090,92 +1288,119 @@ function getStatusTheme(status: string, colors: ReturnType<typeof useAppTheme>["
     return { label: "Scheduled", bg: "rgba(34,197,94,0.14)", text: colors.success };
 }
 
-function getBookingStatusTheme(status: string, colors: ReturnType<typeof useAppTheme>["colors"]) {
+function getBookingStatusTheme(
+    status: string,
+    colors: ReturnType<typeof useAppTheme>["colors"],
+) {
     const value = String(status || "").toLowerCase();
 
-    if (value === "cancelled") {
-        return { label: "Cancelled", bg: colors.dangerSoft, text: colors.danger };
+    if (value === "accepted" || value === "confirmed") {
+        return {
+            label: "Accepted",
+            bg: "rgba(34,197,94,0.14)",
+            text: colors.success,
+        };
     }
 
-    if (value === "confirmed") {
-        return { label: "Confirmed", bg: "rgba(34,197,94,0.14)", text: colors.success };
+    if (value === "rejected") {
+        return {
+            label: "Rejected",
+            bg: colors.dangerSoft,
+            text: colors.danger,
+        };
+    }
+
+    if (value === "cancelled") {
+        return {
+            label: "Cancelled",
+            bg: colors.dangerSoft,
+            text: colors.danger,
+        };
     }
 
     if (value === "completed") {
-        return { label: "Completed", bg: colors.primarySoft, text: colors.primary };
+        return {
+            label: "Completed",
+            bg: colors.primarySoft,
+            text: colors.primary,
+        };
     }
 
-    return { label: "Pending", bg: colors.primarySoft, text: colors.primary };
+    return {
+        label: "Pending",
+        bg: colors.primarySoft,
+        text: colors.primary,
+    };
 }
 
 function PaymentReceivedCard({
-  totalAmount,
-  totalBookings,
+    totalAmount,
+    totalBookings,
 }: {
-  totalAmount: number;
-  totalBookings: number;
+    totalAmount: number;
+    totalBookings: number;
 }) {
-  const { colors } = useAppTheme();
+    const { colors } = useAppTheme();
 
-  return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        borderColor: colors.border,
-        ...cardShadow,
-      }}
-      className="mt-5 overflow-hidden rounded-[30px] border p-5"
-    >
-      <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-green-500/10" />
-
-      <View className="flex-row items-start justify-between gap-4">
+    return (
         <View
-          style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
-          className="h-12 w-12 items-center justify-center rounded-2xl"
+            style={{
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                ...cardShadow,
+            }}
+            className="mt-5 overflow-hidden rounded-[30px] border p-5"
         >
-          <IndianRupee size={22} color={colors.success} />
+            <View className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-green-500/10" />
+
+            <View className="flex-row items-start justify-between gap-4">
+                <View
+                    style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
+                    className="h-12 w-12 items-center justify-center rounded-2xl"
+                >
+                    <IndianRupee size={22} color={colors.success} />
+                </View>
+
+                <View
+                    style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
+                    className="rounded-full px-3 py-1.5"
+                >
+                    <Text style={{ color: colors.success }} className="text-xs font-bold">
+                        Cash Received
+                    </Text>
+                </View>
+            </View>
+
+            <Text style={{ color: colors.text }} className="mt-4 text-xl font-extrabold">
+                Payment Collected
+            </Text>
+
+            <Text style={{ color: colors.muted }} className="mt-2 text-sm leading-5">
+                This ride is completed. Cash payment is considered received from passengers for now.
+            </Text>
+
+            <View
+                style={{ backgroundColor: colors.input }}
+                className="mt-5 flex-row items-center justify-between rounded-2xl px-4 py-3"
+            >
+                <View>
+                    <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+                        Total Cash
+                    </Text>
+                    <Text style={{ color: colors.success }} className="mt-1 text-2xl font-extrabold">
+                        ₹{totalAmount}
+                    </Text>
+                </View>
+
+                <View className="items-end">
+                    <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+                        Bookings
+                    </Text>
+                    <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
+                        {totalBookings}
+                    </Text>
+                </View>
+            </View>
         </View>
-
-        <View
-          style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
-          className="rounded-full px-3 py-1.5"
-        >
-          <Text style={{ color: colors.success }} className="text-xs font-bold">
-            Cash Received
-          </Text>
-        </View>
-      </View>
-
-      <Text style={{ color: colors.text }} className="mt-4 text-xl font-extrabold">
-        Payment Collected
-      </Text>
-
-      <Text style={{ color: colors.muted }} className="mt-2 text-sm leading-5">
-        This ride is completed. Cash payment is considered received from passengers for now.
-      </Text>
-
-      <View
-        style={{ backgroundColor: colors.input }}
-        className="mt-5 flex-row items-center justify-between rounded-2xl px-4 py-3"
-      >
-        <View>
-          <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
-            Total Cash
-          </Text>
-          <Text style={{ color: colors.success }} className="mt-1 text-2xl font-extrabold">
-            ₹{totalAmount}
-          </Text>
-        </View>
-
-        <View className="items-end">
-          <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
-            Bookings
-          </Text>
-          <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
-            {totalBookings}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
+    );
 }

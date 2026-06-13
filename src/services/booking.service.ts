@@ -31,3 +31,13 @@ export async function cancelBookingApi(id: number | string) {
     method: "PATCH",
   });
 }
+
+export function respondToBookingApi(
+  id: string,
+  status: "accepted" | "rejected",
+) {
+  return apiClient(`/bookings/${id}/respond`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
