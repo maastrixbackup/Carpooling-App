@@ -451,7 +451,7 @@ function mapRideToUi(ride: any): PublishedRide {
     to: shortAddress(ride.destination_address),
     date: ride.ride_date || "",
     time: ride.departure_time || "",
-    price: Number(ride.price_per_seat || 0),
+    price: Number(ride.price_per_km|| ride.price_per_seat || 0),
     totalSeats: Number(ride.total_seats || 0),
     availableSeats: Number(ride.available_seats || 0),
     car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",
