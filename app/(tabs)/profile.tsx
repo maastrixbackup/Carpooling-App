@@ -51,7 +51,9 @@ export default function ProfileScreen() {
   const displayName = user?.full_name || user?.name || "User";
   const email = user?.email || "";
   const phone = user?.phone || "";
-  const isVerified = Number(user?.is_verified) === 1 || user?.verification_status === "verified";
+  const isVerified =
+    user?.is_verified === true ||
+    user?.verification_status === "approved";
   const rating = user?.rating ? Number(user.rating).toFixed(1) : "N/A";
   const totalRides = String(user?.total_rides || 0);
   const savedAmount = user?.saved_amount
@@ -169,23 +171,30 @@ export default function ProfileScreen() {
                       </Text>
                     </View>
 
-                    <View
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => router.push("/verification")}
                       style={{
                         backgroundColor: isVerified
                           ? "rgba(34,197,94,0.14)"
                           : colors.dangerSoft,
                       }}
-                      className="rounded-full px-3 py-1"
+                      className="flex-row items-center gap-1 rounded-full px-3 py-1"
                     >
+                      <ShieldCheck
+                        size={12}
+                        color={isVerified ? colors.success : colors.danger}
+                      />
+
                       <Text
                         style={{
                           color: isVerified ? colors.success : colors.danger,
                         }}
                         className="text-xs font-bold"
                       >
-                        {isVerified ? "Verified" : "Not Verified"}
+                        {isVerified ? "Verified" : "Verify Now"}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   </View>
                 </View>
 
@@ -199,6 +208,33 @@ export default function ProfileScreen() {
             <StatCard label="Saved" value={savedAmount} />
             <StatCard label="Rating" value={rating} />
           </View>
+
+          {!isVerified && (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push("/verification" as any)}
+              style={{
+                backgroundColor: colors.primarySoft,
+                borderColor: colors.border,
+              }}
+              className="mt-5 rounded-[24px] border p-4"
+            >
+              <View className="flex-row items-center gap-3">
+                <ShieldCheck size={22} color={colors.primary} />
+
+                <View className="flex-1">
+                  <Text style={{ color: colors.text }} className="font-extrabold">
+                    Complete verification
+                  </Text>
+                  <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+                    Required before redeeming rewards and earnings.
+                  </Text>
+                </View>
+
+                <ChevronRight size={18} color={colors.muted} />
+              </View>
+            </TouchableOpacity>
+          )}
 
           <View className="pt-4">
             <MenuItem
