@@ -12,10 +12,11 @@ export async function getVehicleByIdApi(id: string | number) {
   });
 }
 
-export async function createVehicleApi(payload: any) {
+export async function createVehicleApi(payload: FormData) {
   return apiClient("/vehicles", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
+    isFormData: true,
   });
 }
 

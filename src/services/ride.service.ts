@@ -9,11 +9,34 @@ export async function publishRideApi(payload: any) {
 
 export async function getRidesApi(params?: any) {
   const query = new URLSearchParams();
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "") {
-      query.append(key, String(value));
-    }
-  });
+
+  if (params?.source) query.append("source", params.source);
+  if (params?.destination) query.append("destination", params.destination);
+
+  if (params?.source_lat !== undefined && params?.source_lat !== null) {
+    query.append("source_lat", String(params.source_lat));
+  }
+
+  if (params?.source_lng !== undefined && params?.source_lng !== null) {
+    query.append("source_lng", String(params.source_lng));
+  }
+
+  if (
+    params?.destination_lat !== undefined &&
+    params?.destination_lat !== null
+  ) {
+    query.append("destination_lat", String(params.destination_lat));
+  }
+
+  if (
+    params?.destination_lng !== undefined &&
+    params?.destination_lng !== null
+  ) {
+    query.append("destination_lng", String(params.destination_lng));
+  }
+
+  if (params?.ride_date) query.append("ride_date", params.ride_date);
+  if (params?.min_seats) query.append("min_seats", String(params.min_seats));
 
   return apiClient(`/rides${query.toString() ? `?${query}` : ""}`, {
     method: "GET",

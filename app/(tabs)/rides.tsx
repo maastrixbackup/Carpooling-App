@@ -88,41 +88,28 @@ function mapApiRideToCard(ride: any) {
     ),
 
     seats: Number(ride.available_seats || 0),
-
     driver: ride.driver_name || "Driver",
-
     rating: Number(ride.driver_rating || 0),
-
     total_rides: Number(ride.driver_total_rides || 0),
-
     car:
       `${vehicle.brand || ""} ${vehicle.model || ""}`.trim() ||
       "Vehicle",
-
     pickup: shortAddress(ride.source_address).split(",")[0],
-
     drop: shortAddress(ride.destination_address),
-
     pickupCoordinate: {
       latitude: Number(ride.source_lat),
       longitude: Number(ride.source_lng),
     },
-
     dropCoordinate: {
       latitude: Number(ride.destination_lat),
       longitude: Number(ride.destination_lng),
     },
-
     bookingDistanceKm: Number(
       ride.booking_distance_km || 0,
     ),
-
     matchType: ride.match_type || "full_route",
-
     isVerified: Boolean(ride.is_verified),
-
     profilePicture: ride.profile_picture || null,
-
     vehicleColor: vehicle.color || null,
     vehicleRegistration:
       vehicle.registration_number || null,
@@ -145,18 +132,20 @@ export default function RidesScreen() {
 
   const rideDate = useMemo(() => getDateByFilter(activeFilter), [activeFilter]);
 
-  const hasRouteSearch = Boolean(
-    fromPlace.latitude &&
-    fromPlace.longitude &&
-    toPlace.latitude &&
-    toPlace.longitude,
-  );
+  const hasRouteSearch =
+    Number.isFinite(Number(fromPlace.latitude)) &&
+    Number.isFinite(Number(fromPlace.longitude)) &&
+    Number.isFinite(Number(toPlace.latitude)) &&
+    Number.isFinite(Number(toPlace.longitude));
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: [
       "rides",
       activeFilter,
+      rideDate,
       minSeats,
+      from,
+      to,
       fromPlace.latitude,
       fromPlace.longitude,
       toPlace.latitude,
@@ -166,10 +155,8 @@ export default function RidesScreen() {
       getRidesApi({
         ride_date: rideDate,
         min_seats: minSeats,
-
-        source: hasRouteSearch ? undefined : from,
-        destination: hasRouteSearch ? undefined : to,
-
+        source: fromPlace.address || from || undefined,
+        destination: toPlace.address || to || undefined,
         source_lat: hasRouteSearch ? fromPlace.latitude : undefined,
         source_lng: hasRouteSearch ? fromPlace.longitude : undefined,
         destination_lat: hasRouteSearch ? toPlace.latitude : undefined,

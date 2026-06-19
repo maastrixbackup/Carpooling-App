@@ -9,6 +9,12 @@ import {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+type ApiClientOptions = RequestInit & {
+  auth?: boolean;
+  _retry?: boolean;
+  isFormData?: boolean;
+};
+
 async function refreshAccessToken() {
   if (refreshPromise) {
     return refreshPromise;
@@ -84,10 +90,7 @@ async function parseResponse(response: Response) {
   }
 }
 
-function buildHeaders(
-  options: RequestInit & { auth?: boolean },
-  token?: string | null,
-) {
+function buildHeaders(options: ApiClientOptions, token?: string | null) {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> | undefined),
   };
@@ -95,7 +98,7 @@ function buildHeaders(
   const hasBody =
     options.body !== undefined && options.body !== null && options.body !== "";
 
-  if (hasBody) {
+  if (hasBody && !options.isFormData) {
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
   }
 
@@ -118,10 +121,7 @@ function getBodyForLog(options: RequestInit) {
 
 export async function apiClient(
   endpoint: string,
-  options: RequestInit & {
-    auth?: boolean;
-    _retry?: boolean;
-  } = {},
+  options: ApiClientOptions = {},
 ) {
   const url = `${API_URL}${endpoint}`;
   const token = await getAccessToken();
