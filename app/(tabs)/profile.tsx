@@ -18,7 +18,7 @@ import {
   Star,
   X,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -48,12 +48,13 @@ export default function ProfileScreen() {
   });
 
   const user = data?.data?.user;
+
   const displayName = user?.full_name || user?.name || "User";
   const email = user?.email || "";
   const phone = user?.phone || "";
-  const isVerified =
-    user?.is_verified === true ||
-    user?.verification_status === "approved";
+
+  const verification = useMemo(() => getVerificationMeta(user), [user]);
+
   const rating = user?.rating ? Number(user.rating).toFixed(1) : "N/A";
   const totalRides = String(user?.total_rides || 0);
   const savedAmount = user?.saved_amount
@@ -63,8 +64,7 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     const ok = await confirm({
       title: "Logout?",
-      message:
-        "You will need to login again to access your rides and bookings.",
+      message: "You will need to login again to access your rides and bookings.",
       confirmText: "Logout",
       cancelText: "Stay",
       danger: true,
@@ -100,16 +100,10 @@ export default function ProfileScreen() {
           }}
         >
           <View>
-            <Text
-              style={{ color: colors.muted }}
-              className="text-sm font-semibold"
-            >
+            <Text style={{ color: colors.muted }} className="text-sm font-semibold">
               Account
             </Text>
-            <Text
-              style={{ color: colors.text }}
-              className="mt-1 text-3xl font-extrabold"
-            >
+            <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
               Profile
             </Text>
           </View>
@@ -125,10 +119,7 @@ export default function ProfileScreen() {
             {isLoading ? (
               <View className="items-center py-6">
                 <ActivityIndicator color={colors.primary} />
-                <Text
-                  style={{ color: colors.muted }}
-                  className="mt-3 text-sm font-bold"
-                >
+                <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
                   Loading profile...
                 </Text>
               </View>
@@ -163,36 +154,22 @@ export default function ProfileScreen() {
                   <View className="mt-3 flex-row flex-wrap items-center gap-2">
                     <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1">
                       <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                      <Text
-                        style={{ color: colors.text }}
-                        className="text-xs font-bold"
-                      >
-                        {user?.rating ? user.rating.toFixed(1) : "No rating"}
+                      <Text style={{ color: colors.text }} className="text-xs font-bold">
+                        {user?.rating ? Number(user.rating).toFixed(1) : "No rating"}
                       </Text>
                     </View>
 
                     <TouchableOpacity
                       activeOpacity={0.85}
-                      onPress={() => router.push("/verification")}
+                      onPress={() => router.push("/verification" as any)}
                       style={{
-                        backgroundColor: isVerified
-                          ? "rgba(34,197,94,0.14)"
-                          : colors.dangerSoft,
+                        backgroundColor: verification.bg,
                       }}
                       className="flex-row items-center gap-1 rounded-full px-3 py-1"
                     >
-                      <ShieldCheck
-                        size={12}
-                        color={isVerified ? colors.success : colors.danger}
-                      />
-
-                      <Text
-                        style={{
-                          color: isVerified ? colors.success : colors.danger,
-                        }}
-                        className="text-xs font-bold"
-                      >
-                        {isVerified ? "Verified" : "Verify Now"}
+                      <ShieldCheck size={12} color={verification.color} />
+                      <Text style={{ color: verification.color }} className="text-xs font-bold">
+                        {verification.label}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -209,7 +186,7 @@ export default function ProfileScreen() {
             <StatCard label="Rating" value={rating} />
           </View>
 
-          {!isVerified && (
+          {!verification.completed && (
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router.push("/verification" as any)}
@@ -250,7 +227,11 @@ export default function ProfileScreen() {
             <MenuItem
               icon={<Gift size={20} color={colors.primary} />}
               title="Rewards"
-              subtitle="Points, badges, and referral benefits"
+              subtitle={
+                verification.canRedeem
+                  ? "Points, badges, and referral benefits"
+                  : "Complete verification before redeeming"
+              }
               onPress={() => router.push("/rewards")}
               last
             />
@@ -262,22 +243,6 @@ export default function ProfileScreen() {
               title="My Vehicles"
               subtitle="Manage cars used for rides"
               onPress={() => router.push("/vehicles")}
-            />
-
-            <MenuItem
-              icon={
-                <ShieldCheck
-                  size={20}
-                  color={isVerified ? colors.success : colors.primary}
-                />
-              }
-              title="Verification"
-              subtitle={
-                isVerified
-                  ? "Your account is verified"
-                  : "Complete ID and safety checks"
-              }
-              onPress={() => router.push("/verification" as any)}
               last
             />
           </Section>
@@ -342,6 +307,44 @@ export default function ProfileScreen() {
   );
 }
 
+function getVerificationMeta(user: any) {
+  const isApproved =
+    user?.is_verified === true ||
+    user?.verification_status === "approved" ||
+    user?.onboarding_completed === true;
+
+  const isRejected = user?.verification_status === "rejected";
+  const canRedeem = user?.can_redeem === true;
+
+  if (isApproved) {
+    return {
+      completed: true,
+      canRedeem,
+      label: "Verified",
+      bg: "rgba(34,197,94,0.14)",
+      color: "#22C55E",
+    };
+  }
+
+  if (isRejected) {
+    return {
+      completed: false,
+      canRedeem: false,
+      label: "Rejected",
+      bg: "rgba(239,68,68,0.14)",
+      color: "#EF4444",
+    };
+  }
+
+  return {
+    completed: false,
+    canRedeem: false,
+    label: "Verify Now",
+    bg: "rgba(239,68,68,0.14)",
+    color: "#EF4444",
+  };
+}
+
 function ProfileModal({
   visible,
   onClose,
@@ -367,12 +370,7 @@ function ProfileModal({
   }, [visible, user]);
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/60">
         <View
           style={{ backgroundColor: colors.card, borderColor: colors.border }}
@@ -380,10 +378,7 @@ function ProfileModal({
         >
           <View className="flex-row items-center justify-between">
             <View>
-              <Text
-                style={{ color: colors.text }}
-                className="text-xl font-extrabold"
-              >
+              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
                 Profile Details
               </Text>
               <Text style={{ color: colors.muted }} className="mt-1 text-xs">
@@ -418,17 +413,8 @@ function ProfileModal({
 
             <View className="mt-7">
               <ProfileInput label="Full Name" value={name} editable={false} />
-              <ProfileInput
-                label="Phone Number"
-                value={phone}
-                editable={false}
-              />
-              <ProfileInput
-                label="Email Address"
-                value={email}
-                editable={false}
-                last
-              />
+              <ProfileInput label="Phone Number" value={phone} editable={false} />
+              <ProfileInput label="Email Address" value={email} editable={false} last />
             </View>
 
             <TouchableOpacity
@@ -463,17 +449,11 @@ function ProfileInput({
 
   return (
     <View className={last ? "" : "mb-4"}>
-      <Text
-        style={{ color: colors.muted }}
-        className="mb-2 text-xs font-bold uppercase"
-      >
+      <Text style={{ color: colors.muted }} className="mb-2 text-xs font-bold uppercase">
         {label}
       </Text>
 
-      <View
-        style={{ backgroundColor: colors.input }}
-        className="rounded-2xl px-4 py-3"
-      >
+      <View style={{ backgroundColor: colors.input }} className="rounded-2xl px-4 py-3">
         <TextInput
           value={value || "Not available"}
           editable={editable}
@@ -522,16 +502,10 @@ function StatCard({ label, value }: { label: string; value: string }) {
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
       className="flex-1 rounded-[24px] border p-4"
     >
-      <Text
-        style={{ color: colors.text }}
-        className="text-center text-xl font-extrabold"
-      >
+      <Text style={{ color: colors.text }} className="text-center text-xl font-extrabold">
         {value}
       </Text>
-      <Text
-        style={{ color: colors.muted }}
-        className="mt-1 text-center text-xs"
-      >
+      <Text style={{ color: colors.muted }} className="mt-1 text-center text-xs">
         {label}
       </Text>
     </View>
@@ -577,7 +551,7 @@ function MenuItem({
         </Text>
       </View>
 
-      <ChevronRight size={18} color={colors.muted} />
+      {onPress && <ChevronRight size={18} color={colors.muted} />}
     </TouchableOpacity>
   );
 }

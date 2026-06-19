@@ -89,9 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (payload: LoginPayload) => {
     const response = await loginApi(payload);
-
     logger.auth("LOGIN SUCCESS", response);
-
     const { accessToken, refreshToken } = extractTokens(response);
 
     await saveAuthTokens({
@@ -117,12 +115,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await logoutApi();
-    } catch {}
-
-    queryClient.clear();
-    await clearAuthTokens();
-    setUser(null);
+      queryClient.cancelQueries();
+      queryClient.clear();
+      setUser(null);
+      await logoutApi().catch(() => { });
+      await clearAuthTokens();
+    } catch {
+      await clearAuthTokens();
+      setUser(null);
+      queryClient.clear();
+    }
   };
 
   const refreshUser = async () => {

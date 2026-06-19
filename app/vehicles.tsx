@@ -6,13 +6,18 @@ import {
 } from "@/services/vehicle.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import {
   ArrowLeft,
+  BadgeCheck,
   Car,
+  FileText,
   Hash,
+  Palette,
   Plus,
-  Trash2,
+  ShieldCheck,
+  Trash2
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
@@ -37,11 +42,14 @@ type Vehicle = {
   manufacture_year?: string;
   registration_number: string;
   rc_number?: string;
+  rc_document_url?: string | null;
   color?: string;
   seats: number;
   available_seats?: number;
   fuel_type?: string;
   status?: string;
+  verification_status?: "pending" | "approved" | "rejected";
+  is_active?: boolean;
 };
 
 export default function VehiclesScreen() {
@@ -49,18 +57,15 @@ export default function VehiclesScreen() {
   const queryClient = useQueryClient();
   const confirm = useConfirm();
 
+  const [rcFile, setRcFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [vehiclePhoto, setVehiclePhoto] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [color, setColor] = useState("");
   const [seats, setSeats] = useState("4");
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["my-vehicles"],
     queryFn: getMyVehiclesApi,
   });
@@ -72,21 +77,23 @@ export default function VehiclesScreen() {
       brand.trim().length > 0 &&
       model.trim().length > 0 &&
       registrationNumber.trim().length > 0 &&
-      Number(seats) > 0
+      Number(seats) > 0 &&
+      !!rcFile &&
+      !!vehiclePhoto
     );
-  }, [brand, model, registrationNumber, seats]);
+  }, [brand, model, registrationNumber, seats, rcFile, vehiclePhoto]);
 
   const createMutation = useMutation({
     mutationFn: createVehicleApi,
     onSuccess: async () => {
-      toast.success("Vehicle added successfully.");
-
+      toast.success("Vehicle submitted for verification.");
       setBrand("");
       setModel("");
       setRegistrationNumber("");
       setColor("");
       setSeats("4");
-
+      setRcFile(null);
+      setVehiclePhoto(null);
       await queryClient.invalidateQueries({ queryKey: ["my-vehicles"] });
     },
     onError: (error: any) => {
@@ -105,29 +112,91 @@ export default function VehiclesScreen() {
     },
   });
 
-  const handleAddVehicle = () => {
-    if (!canSubmit) {
-      toast.error("Please fill brand, model, vehicle number, and seats.");
-      return;
-    }
+  const pickRcDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*", "application/pdf"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
 
-    createMutation.mutate({
-      vehicle_type: "car",
-      brand: brand.trim(),
-      model: model.trim(),
-      manufacture_year: null,
-      registration_number: registrationNumber.trim().toUpperCase(),
-      rc_number: registrationNumber.trim().toUpperCase(),
-      color: color.trim() || null,
-      seats: Number(seats),
-      available_seats: Number(seats),
-      fuel_type: null,
-    });
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+
+      if (file.size && file.size > 5 * 1024 * 1024) {
+        toast.error("RC file must be under 5 MB.");
+        return;
+      }
+
+      setRcFile(file);
+    } catch {
+      toast.error("Unable to select RC document.");
+    }
+  };
+
+  const handleAddVehicle = () => {
+    if (!brand.trim()) return toast.error("Brand is required.");
+    if (!model.trim()) return toast.error("Model is required.");
+    if (!registrationNumber.trim()) return toast.error("Vehicle number is required.");
+    if (!Number(seats) || Number(seats) < 1) return toast.error("Enter valid seats.");
+    if (!rcFile) return toast.error("Please upload RC document.");
+    if (!vehiclePhoto) return toast.error("Please upload vehicle photo.");
+
+    const formData = new FormData();
+
+    formData.append("vehicle_type", "car");
+    formData.append("brand", brand.trim());
+    formData.append("model", model.trim());
+    formData.append("registration_number", registrationNumber.trim().toUpperCase());
+    formData.append("rc_number", registrationNumber.trim().toUpperCase());
+    formData.append("color", color.trim() || "");
+    formData.append("seats", String(Number(seats)));
+    formData.append("available_seats", String(Number(seats)));
+
+    formData.append("rc_document", {
+      uri: rcFile.uri,
+      name: rcFile.name || "vehicle-rc",
+      type: rcFile.mimeType || "application/octet-stream",
+    } as any);
+    formData.append(
+      "vehicle_photo",
+      {
+        uri: vehiclePhoto!.uri,
+        name: vehiclePhoto!.name || "vehicle-photo.jpg",
+        type: vehiclePhoto!.mimeType || "image/jpeg",
+      } as any
+    );
+
+    createMutation.mutate(formData);
+  };
+
+  const pickVehiclePhoto = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["image/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+
+      if (result.canceled) return;
+
+      const file = result.assets[0];
+
+      if (file.size && file.size > 5 * 1024 * 1024) {
+        toast.error("Vehicle image must be under 5 MB.");
+        return;
+      }
+
+      setVehiclePhoto(file);
+    } catch {
+      toast.error("Unable to select vehicle image.");
+    }
   };
 
   const handleDelete = async (id: number) => {
     const ok = await confirm({
-      title: "Delete Vehicle?",
+      title: "Delete vehicle?",
       message:
         "This vehicle will be removed from your profile. Existing ride history will remain safe.",
       confirmText: "Delete",
@@ -156,112 +225,170 @@ export default function VehiclesScreen() {
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingTop: Platform.OS === "android" ? 16 : 12,
-              paddingBottom: 130,
+              paddingBottom: 150,
             }}
           >
-            <Header title="My Vehicles" subtitle="Manage cars for publishing rides" />
+            <Header />
 
-            <View className="mt-6 gap-4">
-              {isLoading ? (
-                <LoadingCard />
-              ) : vehicles.length > 0 ? (
-                vehicles.map((vehicle) => (
-                  <VehicleCard
-                    key={vehicle.id}
-                    vehicle={vehicle}
-                    deleting={deleteMutation.isPending}
-                    onDelete={() => handleDelete(vehicle.id)}
-                  />
-                ))
-              ) : (
-                <EmptyVehicleCard />
-              )}
+            <InfoBanner />
+
+            <View className="mt-6">
+              <View className="mb-3 flex-row items-center justify-between">
+                <Text
+                  style={{ color: colors.text }}
+                  className="text-lg font-extrabold"
+                >
+                  Your Vehicles
+                </Text>
+
+                <Text
+                  style={{ color: colors.muted }}
+                  className="text-xs font-bold"
+                >
+                  {vehicles.length} added
+                </Text>
+              </View>
+
+              <View className="gap-4">
+                {isLoading ? (
+                  <LoadingCard />
+                ) : vehicles.length > 0 ? (
+                  vehicles.map((vehicle) => (
+                    <VehicleCard
+                      key={vehicle.id}
+                      vehicle={vehicle}
+                      deleting={deleteMutation.isPending}
+                      onDelete={() => handleDelete(vehicle.id)}
+                    />
+                  ))
+                ) : (
+                  <EmptyVehicleCard />
+                )}
+              </View>
             </View>
 
-            <Section title="Add Vehicle">
-              <AppInput
-                icon={<Car size={18} color={colors.primary} />}
-                label="Brand"
-                value={brand}
-                onChangeText={setBrand}
-                placeholder="Example: Hyundai"
-              />
+            <Section title="Add New Vehicle">
+              <View className="mb-5 flex-row items-center gap-3">
+                <View
+                  style={{ backgroundColor: colors.primarySoft }}
+                  className="h-12 w-12 items-center justify-center rounded-2xl"
+                >
+                  <Car size={22} color={colors.primary} />
+                </View>
 
-              <AppInput
-                icon={<Car size={18} color={colors.primary} />}
-                label="Model"
-                value={model}
-                onChangeText={setModel}
-                placeholder="Example: i20"
-              />
+                <View className="flex-1">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="font-extrabold"
+                  >
+                    Vehicle information
+                  </Text>
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs leading-4"
+                  >
+                    Add accurate vehicle details. RC upload is required for
+                    verification.
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <AppInput
+                    icon={<Car size={18} color={colors.primary} />}
+                    label="Brand"
+                    value={brand}
+                    onChangeText={setBrand}
+                    placeholder="Hyundai"
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <AppInput
+                    icon={<Car size={18} color={colors.primary} />}
+                    label="Model"
+                    value={model}
+                    onChangeText={setModel}
+                    placeholder="i20"
+                  />
+                </View>
+              </View>
 
               <AppInput
                 icon={<Hash size={18} color={colors.primary} />}
                 label="Vehicle Number"
                 value={registrationNumber}
-                onChangeText={setRegistrationNumber}
-                placeholder="Example: OD 02 AB 1234"
+                onChangeText={(value) => setRegistrationNumber(value.toUpperCase())}
+                placeholder="OD 02 AB 1234"
                 autoCapitalize="characters"
               />
 
-              <AppInput
-                icon={<Car size={18} color={colors.primary} />}
-                label="Color"
-                value={color}
-                onChangeText={setColor}
-                placeholder="Example: White"
-              />
 
-              <AppInput
-                icon={<Car size={18} color={colors.primary} />}
-                label="Total Seats"
-                value={seats}
-                onChangeText={setSeats}
-                placeholder="Example: 4"
-                keyboardType="phone-pad"
-                last
-              />
+
+              <View className="mb-4">
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mb-2 text-xs font-bold uppercase"
+                >
+                  Required Uploads
+                </Text>
+
+                <View className="gap-3 flex-row">
+                  <UploadCard
+                    title="Vehicle Photo"
+                    subtitle="Upload a clear front or side photo"
+                    file={vehiclePhoto}
+                    icon={<Car size={22} color={colors.primary} />}
+                    onPress={pickVehiclePhoto}
+                  />
+
+                  <UploadCard
+                    title="RC Document"
+                    subtitle="Upload PDF, JPG, or PNG under 5 MB"
+                    file={rcFile}
+                    icon={<FileText size={22} color={colors.primary} />}
+                    onPress={pickRcDocument}
+                  />
+                </View>
+              </View>
+
+              <View className="flex-row gap-3">
+                <View className="flex-1">
+                  <AppInput
+                    icon={<Palette size={18} color={colors.primary} />}
+                    label="Color"
+                    value={color}
+                    onChangeText={setColor}
+                    placeholder="White"
+                  />
+                </View>
+
+                <View className="w-[38%]">
+                  <SeatSelector seats={seats} setSeats={setSeats} />
+                </View>
+              </View>
             </Section>
           </ScrollView>
 
-          <View
-            style={{ backgroundColor: colors.card, borderTopColor: colors.border }}
-            className="absolute bottom-0 left-0 right-0 border-t px-5 pb-8 pt-4"
-          >
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleAddVehicle}
-              disabled={!canSubmit || createMutation.isPending}
-              style={{
-                backgroundColor: canSubmit ? colors.primary : colors.muted,
-                opacity: createMutation.isPending ? 0.75 : 1,
-              }}
-              className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
-            >
-              {createMutation.isPending ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <>
-                  <Plus size={19} color="#FFFFFF" />
-                  <Text className="text-base font-extrabold text-white">
-                    Add Vehicle
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          <BottomAction
+            canSubmit={canSubmit}
+            loading={createMutation.isPending}
+            onPress={handleAddVehicle}
+          />
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
 }
 
-function Header({ title, subtitle }: { title: string; subtitle: string }) {
+function Header() {
   const { colors } = useAppTheme();
 
   return (
     <View className="flex-row items-center gap-4">
       <TouchableOpacity
+        activeOpacity={0.85}
         onPress={() => router.back()}
         style={{ backgroundColor: colors.card, borderColor: colors.border }}
         className="h-11 w-11 items-center justify-center rounded-full border"
@@ -271,11 +398,36 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
 
       <View className="flex-1">
         <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          {title}
+          My Vehicles
         </Text>
         <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          {subtitle}
+          Add and verify cars for publishing rides.
         </Text>
+      </View>
+    </View>
+  );
+}
+
+function InfoBanner() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{ backgroundColor: colors.primarySoft, borderColor: colors.border }}
+      className="mt-6 rounded-[26px] border p-4"
+    >
+      <View className="flex-row gap-3">
+        <ShieldCheck size={22} color={colors.primary} />
+
+        <View className="flex-1">
+          <Text style={{ color: colors.text }} className="font-extrabold">
+            RC verification required
+          </Text>
+          <Text style={{ color: colors.muted }} className="mt-1 text-xs leading-5">
+            Upload your vehicle RC as PDF, JPG, or PNG. New vehicles may stay
+            pending until approved.
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -293,6 +445,7 @@ function VehicleCard({
   const { colors } = useAppTheme();
 
   const title = `${vehicle.brand || ""} ${vehicle.model || ""}`.trim();
+  const status = getVehicleStatus(vehicle, colors);
 
   return (
     <View
@@ -309,9 +462,12 @@ function VehicleCard({
           <Car size={23} color={colors.primary} />
         </View>
 
-        <View style={{ backgroundColor: "rgba(34,197,94,0.14)" }} className="rounded-full px-3 py-1.5">
-          <Text style={{ color: colors.success }} className="text-xs font-bold">
-            Active
+        <View
+          style={{ backgroundColor: status.bg }}
+          className="rounded-full px-3 py-1.5"
+        >
+          <Text style={{ color: status.color }} className="text-xs font-bold">
+            {status.label}
           </Text>
         </View>
       </View>
@@ -324,21 +480,25 @@ function VehicleCard({
         {vehicle.registration_number}
       </Text>
 
-      <Text style={{ color: colors.muted }} className="mt-3 text-xs">
-        {vehicle.seats} total seats{vehicle.color ? ` • ${vehicle.color}` : ""}
-      </Text>
+      <View className="mt-4 flex-row flex-wrap gap-2">
+        <Pill label={`${vehicle.seats || 0} seats`} />
+        {vehicle.color ? <Pill label={vehicle.color} /> : null}
+        {vehicle.rc_document_url ? <Pill label="RC uploaded" /> : null}
+      </View>
 
-      <View style={{ borderTopColor: colors.border }} className="mt-5 flex-row gap-3 border-t pt-4">
-        <TouchableOpacity
-          activeOpacity={0.85}
-          disabled
-          style={{ backgroundColor: colors.primarySoft }}
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-3 opacity-70"
+      <View
+        style={{ borderTopColor: colors.border }}
+        className="mt-5 flex-row gap-3 border-t pt-4"
+      >
+        <View
+          style={{ backgroundColor: colors.input }}
+          className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-3"
         >
-          <Text style={{ color: colors.primary }} className="text-xs font-extrabold">
-            Vehicle Ready
+          <BadgeCheck size={16} color={status.color} />
+          <Text style={{ color: status.color }} className="text-xs font-extrabold">
+            {status.actionText}
           </Text>
-        </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           activeOpacity={0.85}
@@ -358,40 +518,21 @@ function VehicleCard({
   );
 }
 
-function LoadingCard() {
+function Pill({ label }: { label: string }) {
   const { colors } = useAppTheme();
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="items-center rounded-[30px] border p-8"
+      style={{ backgroundColor: colors.input }}
+      className="rounded-full px-3 py-1.5"
     >
-      <ActivityIndicator color={colors.primary} />
-      <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
-        Loading vehicles...
+      <Text style={{ color: colors.muted }} className="text-xs font-bold">
+        {label}
       </Text>
     </View>
   );
 }
 
-function EmptyVehicleCard() {
-  const { colors } = useAppTheme();
-
-  return (
-    <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="items-center rounded-[30px] border p-8"
-    >
-      <Car size={36} color={colors.muted} />
-      <Text style={{ color: colors.text }} className="mt-4 text-lg font-extrabold">
-        No vehicles yet
-      </Text>
-      <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm">
-        Add your first vehicle to publish rides.
-      </Text>
-    </View>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const { colors } = useAppTheme();
@@ -444,7 +585,7 @@ function AppInput({
 
       <View
         style={{ backgroundColor: colors.input }}
-        className="flex-row items-center gap-3 rounded-2xl px-4 py-3"
+        className="min-h-[54px] flex-row items-center gap-3 rounded-2xl px-4 py-3"
       >
         {icon}
 
@@ -461,5 +602,256 @@ function AppInput({
         />
       </View>
     </View>
+  );
+}
+
+function BottomAction({
+  canSubmit,
+  loading,
+  onPress,
+}: {
+  canSubmit: boolean;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{ backgroundColor: colors.card, borderTopColor: colors.border }}
+      className="absolute bottom-0 left-0 right-0 border-t px-5 pb-8 pt-4"
+    >
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onPress}
+        disabled={!canSubmit || loading}
+        style={{
+          backgroundColor: canSubmit ? colors.primary : colors.muted,
+          opacity: loading ? 0.75 : 1,
+        }}
+        className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <>
+            <Plus size={19} color="#FFFFFF" />
+            <Text className="text-base font-extrabold text-white">
+              {canSubmit ? "Submit for Verification" : "Complete Vehicle Details"}
+            </Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function LoadingCard() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      className="items-center rounded-[30px] border p-8"
+    >
+      <ActivityIndicator color={colors.primary} />
+      <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
+        Loading vehicles...
+      </Text>
+    </View>
+  );
+}
+
+function EmptyVehicleCard() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      className="items-center rounded-[30px] border p-8"
+    >
+      <Car size={36} color={colors.muted} />
+      <Text style={{ color: colors.text }} className="mt-4 text-lg font-extrabold">
+        No vehicles yet
+      </Text>
+      <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm">
+        Add your first verified vehicle to publish rides.
+      </Text>
+    </View>
+  );
+}
+
+function getVehicleStatus(
+  vehicle: Vehicle,
+  colors: ReturnType<typeof useAppTheme>["colors"],
+) {
+  const status = vehicle.verification_status || vehicle.status || "pending";
+
+  if (status === "approved" || status === "active") {
+    return {
+      label: "Approved",
+      actionText: "Ready to publish",
+      bg: "rgba(34,197,94,0.14)",
+      color: colors.success,
+    };
+  }
+
+  if (status === "rejected") {
+    return {
+      label: "Rejected",
+      actionText: "Verification failed",
+      bg: colors.dangerSoft,
+      color: colors.danger,
+    };
+  }
+
+  return {
+    label: "Pending",
+    actionText: "Under review",
+    bg: colors.primarySoft,
+    color: colors.primary,
+  };
+}
+
+function SeatSelector({
+  seats,
+  setSeats,
+}: {
+  seats: string;
+  setSeats: (value: string) => void;
+}) {
+  const { colors } = useAppTheme();
+
+  const seatNumber = Math.max(1, Number(seats || 1));
+
+  const decrease = () => {
+    setSeats(String(Math.max(1, seatNumber - 1)));
+  };
+
+  const increase = () => {
+    setSeats(String(Math.min(8, seatNumber + 1)));
+  };
+
+  return (
+    <View>
+      <Text
+        style={{ color: colors.muted }}
+        className="mb-2 text-xs font-bold uppercase"
+      >
+        Seats
+      </Text>
+
+      <View
+        style={{ backgroundColor: colors.input }}
+        className="min-h-[54px] flex-row items-center justify-between rounded-2xl px-3"
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={decrease}
+          style={{ backgroundColor: colors.card }}
+          className="h-9 w-9 items-center justify-center rounded-full"
+        >
+          <Text style={{ color: colors.text }} className="text-xl font-extrabold">
+            −
+          </Text>
+        </TouchableOpacity>
+
+        <View className="items-center">
+          <Text style={{ color: colors.text }} className="text-lg font-extrabold">
+            {seatNumber}
+          </Text>
+          <Text style={{ color: colors.muted }} className="text-[10px] font-bold">
+            seats
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={increase}
+          style={{ backgroundColor: colors.primary }}
+          className="h-8 w-8 items-center justify-center rounded-full"
+        >
+          <Text className="text-xl font-extrabold text-white">+</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function UploadCard({
+  title,
+  subtitle,
+  file,
+  icon,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  file: any;
+  icon: React.ReactNode;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+
+  const uploaded = !!file;
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={{
+        backgroundColor: uploaded
+          ? colors.primarySoft
+          : colors.input,
+        borderColor: uploaded
+          ? colors.primary
+          : colors.border,
+      }}
+      className="flex-1 rounded-[24px] border border-dashed p-4"
+    >
+      <View
+        style={{ backgroundColor: colors.card }}
+        className="h-12 w-12 items-center justify-center rounded-2xl"
+      >
+        {uploaded ? (
+          <BadgeCheck
+            size={22}
+            color={colors.success}
+          />
+        ) : (
+          icon
+        )}
+      </View>
+
+      <Text
+        style={{ color: colors.text }}
+        className="mt-3 font-extrabold"
+      >
+        {title}
+      </Text>
+
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-xs"
+        numberOfLines={2}
+      >
+        {uploaded
+          ? file?.name || "Uploaded"
+          : subtitle}
+      </Text>
+
+      <View className="mt-3">
+        <Text
+          style={{
+            color: uploaded
+              ? colors.success
+              : colors.primary,
+          }}
+          className="text-xs font-bold"
+        >
+          {uploaded ? "Uploaded" : "Tap to Upload"}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 }

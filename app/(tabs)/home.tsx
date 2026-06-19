@@ -1,4 +1,5 @@
 import { RideCard } from "@/components/ride/RideCard";
+import { useAuth } from "@/context/AuthContext";
 import { shortAddress } from "@/hooks/address-trimmer";
 import { getHomeBootstrap } from "@/services/home.service";
 import {
@@ -162,7 +163,7 @@ function mapApiRideToCard(ride: any) {
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-
+  const { isAuthenticated } = useAuth();
   const dates = useMemo(() => getNextDates(), []);
   const heroListRef = useRef<FlatList<(typeof heroSlides)[number]>>(null);
 
@@ -197,6 +198,8 @@ export default function HomeScreen() {
         ride_date: selectedDate.apiValue,
         seats,
       }),
+    enabled: isAuthenticated,
+    retry: false,
   });
 
   const homeData = data?.data;
