@@ -163,17 +163,23 @@ export default function BookingDetailsScreen() {
 
   const handleOpenChat = async () => {
     if (!booking) return;
+    if (booking.status !== "confirmed") {
+      toast.error("Chat is available after driver accepts your booking.");
+      return;
+    }
     try {
       const response = await getRoomByBookingApi(booking.id);
       const roomId = response?.data?.room?.id;
       if (!roomId) {
-        toast.error("Chat room not available.");
+        toast.error("Chat room not available yet.");
         return;
       }
+
       router.push({
         pathname: "/chat/[roomId]",
         params: {
           roomId: String(roomId),
+          title: booking.driverName || "Driver",
         },
       });
     } catch (error: any) {
@@ -409,20 +415,28 @@ export default function BookingDetailsScreen() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleOpenChat}
-              style={{ backgroundColor: colors.primarySoft }}
-              className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
-            >
-              <MessageCircle size={18} color={colors.primary} />
-              <Text
-                style={{ color: colors.primary }}
-                className="font-extrabold"
+            {booking.status === "confirmed" ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleOpenChat}
+                style={{ backgroundColor: colors.primarySoft }}
+                className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
               >
-                Chat with Driver
-              </Text>
-            </TouchableOpacity>
+                <MessageCircle size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary }} className="font-extrabold">
+                  Chat with Driver
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View
+                style={{ backgroundColor: colors.input }}
+                className="rounded-2xl px-4 py-3"
+              >
+                <Text style={{ color: colors.muted }} className="text-center text-xs font-bold">
+                  Chat will be available after driver accepts your booking.
+                </Text>
+              </View>
+            )}
           </SectionCard>
 
           <SectionCard title="Payment Summary">
@@ -946,7 +960,7 @@ function getStatusTheme(
 ) {
   if (status === "confirmed") {
     return {
-      label: "Confirmed",
+      label: "Accepted",
       bg: "rgba(34,197,94,0.14)",
       text: colors.success,
     };
