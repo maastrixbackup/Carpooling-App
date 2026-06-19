@@ -1,3 +1,4 @@
+import { useAuth } from "@/context/AuthContext";
 import { getMyRidesApi } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -47,6 +48,8 @@ const cardShadow = {
 export default function MyPublishedRidesScreen() {
   const { colors } = useAppTheme();
   const [now, setNow] = useState(new Date());
+  const { isAuthenticated } = useAuth();
+
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -59,6 +62,8 @@ export default function MyPublishedRidesScreen() {
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["my-rides"],
     queryFn: getMyRidesApi,
+    enabled: isAuthenticated,
+    retry: false,
   });
 
   const rides: PublishedRide[] = data?.data?.rides?.map(mapRideToUi) || [];
@@ -451,7 +456,7 @@ function mapRideToUi(ride: any): PublishedRide {
     to: shortAddress(ride.destination_address),
     date: ride.ride_date || "",
     time: ride.departure_time || "",
-    price: Number(ride.price_per_km|| ride.price_per_seat || 0),
+    price: Number(ride.price_per_km || ride.price_per_seat || 0),
     totalSeats: Number(ride.total_seats || 0),
     availableSeats: Number(ride.available_seats || 0),
     car: `${ride.brand || ""} ${ride.model || ""}`.trim() || "Vehicle",

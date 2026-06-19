@@ -117,14 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await logoutApi();
-    } catch (error) {
-      console.log("Remote logout skipped.");
+      queryClient.cancelQueries();
+      queryClient.clear();
+      setUser(null);
+      await logoutApi().catch(() => { });
+      await clearAuthTokens();
+    } catch {
+      await clearAuthTokens();
+      setUser(null);
+      queryClient.clear();
     }
-
-    queryClient.clear();
-    await clearAuthTokens();
-    setUser(null);
   };
 
   const refreshUser = async () => {
