@@ -1,10 +1,13 @@
+import { shortAddress1 } from "@/hooks/address-trimmer";
+import { getMyChatRoomsApi } from "@/services/chat.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
     ArrowLeft,
     Car,
     CheckCheck,
-    MessageCircle,
+    RefreshCcw,
     Search,
     ShieldCheck,
     UserRound,
@@ -13,7 +16,9 @@ import {
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
+    ActivityIndicator,
     Platform,
+    RefreshControl,
     ScrollView,
     Text,
     TextInput,
@@ -31,66 +36,54 @@ type ChatItem = {
   from: string;
   to: string;
   lastMessage: string;
-  time: string;
+  lastMessageAt?: string | null;
+  rideDate?: string;
+  rideTime?: string;
   unreadCount: number;
-  rideDate: string;
-  avatarLetter: string;
-  status: "active" | "waiting" | "ended";
-  isOnline?: boolean;
+  avatarLetter?: string;
+  rideStatus?: string;
+  profilePicture?: string | null;
 };
 
-const passengerChats: ChatItem[] = [
-  {
-    roomId: "1",
-    name: "Rohit Kumar",
-    roleLabel: "Passenger",
-    from: "Damana",
-    to: "Cuttack",
-    lastMessage: "Okay brother, I will be at pickup point on time.",
-    time: "2:14 PM",
-    unreadCount: 2,
-    rideDate: "Today, 7:30 AM",
-    avatarLetter: "R",
-    status: "active",
-    isOnline: true,
-  },
-  {
-    roomId: "2",
-    name: "Ankit Das",
-    roleLabel: "Passenger",
-    from: "Jaydev Vihar",
-    to: "Bhubaneswar Station",
-    lastMessage: "Can you confirm the exact pickup location?",
-    time: "11:32 AM",
-    unreadCount: 0,
-    rideDate: "Tomorrow, 9:00 AM",
-    avatarLetter: "A",
-    status: "waiting",
-  },
-];
-
-const driverChats: ChatItem[] = [
-  {
-    roomId: "3",
-    name: "Rudra",
-    roleLabel: "Driver",
-    from: "Patia",
-    to: "Cuttack",
-    lastMessage: "I will reach near the main gate.",
-    time: "1:05 PM",
-    unreadCount: 1,
-    rideDate: "Today, 6:00 PM",
-    avatarLetter: "R",
-    status: "active",
-    isOnline: true,
-  },
-];
+function mapChatItem(item: any): ChatItem {
+  return {
+    roomId: String(item.roomId || item.id),
+    name: item.name || "User",
+    roleLabel: item.roleLabel || (item.role === "driver" ? "Passenger" : "Driver"),
+    from: shortAddress1(item.from) || "",
+    to: shortAddress1(item.to) || "",
+    lastMessage: item.lastMessage || "No messages yet",
+    lastMessageAt: item.lastMessageAt || null,
+    rideDate: item.rideDate || "",
+    rideTime: item.rideTime || "",
+    unreadCount: Number(item.unreadCount || 0),
+    avatarLetter:
+      item.avatarLetter ||
+      String(item.name || "U").trim().charAt(0).toUpperCase() ||
+      "U",
+    rideStatus: item.rideStatus || "active",
+    profilePicture: item.profilePicture || null,
+  };
+}
 
 export default function MessagesScreen() {
   const { colors } = useAppTheme();
 
   const [activeTab, setActiveTab] = useState<ChatTab>("passengers");
   const [search, setSearch] = useState("");
+
+  const { data, isLoading, isFetching, refetch } = useQuery({
+    queryKey: ["my-chat-rooms"],
+    queryFn: getMyChatRoomsApi,
+  });
+
+  const passengerChats = useMemo(() => {
+    return (data?.data?.passengerChats || []).map(mapChatItem);
+  }, [data]);
+
+  const driverChats = useMemo(() => {
+    return (data?.data?.driverChats || []).map(mapChatItem);
+  }, [data]);
 
   const currentChats = activeTab === "passengers" ? passengerChats : driverChats;
 
@@ -99,19 +92,19 @@ export default function MessagesScreen() {
 
     if (!query) return currentChats;
 
-    return currentChats.filter((item) => {
+    return currentChats.filter((item: ChatItem) => {
       const text = `${item.name} ${item.from} ${item.to} ${item.lastMessage}`.toLowerCase();
       return text.includes(query);
     });
-  }, [activeTab, search, currentChats]);
+  }, [search, currentChats]);
 
   const unreadPassengerCount = passengerChats.reduce(
-    (sum, item) => sum + item.unreadCount,
+    (sum: number, item: ChatItem) => sum + item.unreadCount,
     0,
   );
 
   const unreadDriverCount = driverChats.reduce(
-    (sum, item) => sum + item.unreadCount,
+    (sum: number, item: ChatItem) => sum + item.unreadCount,
     0,
   );
 
@@ -121,13 +114,16 @@ export default function MessagesScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={isFetching} onRefresh={refetch} />
+          }
           contentContainerStyle={{
             paddingHorizontal: 18,
             paddingTop: Platform.OS === "android" ? 16 : 12,
             paddingBottom: 120,
           }}
         >
-          <Header />
+          <Header onRefresh={refetch} />
 
           <SearchBox search={search} setSearch={setSearch} />
 
@@ -156,7 +152,7 @@ export default function MessagesScreen() {
               className="rounded-full px-3 py-1.5"
             >
               <Text style={{ color: colors.muted }} className="text-xs font-bold">
-                {filteredChats.length} chats
+                {filteredChats.length} chat{filteredChats.length === 1 ? "" : "s"}
               </Text>
             </View>
           </View>
@@ -165,8 +161,10 @@ export default function MessagesScreen() {
             style={{ backgroundColor: colors.card, borderColor: colors.border }}
             className="mt-4 overflow-hidden rounded-[28px] border"
           >
-            {filteredChats.length > 0 ? (
-              filteredChats.map((item, index) => (
+            {isLoading ? (
+              <LoadingChats />
+            ) : filteredChats.length > 0 ? (
+              filteredChats.map((item: ChatItem, index: number) => (
                 <ChatListItem
                   key={item.roomId}
                   item={item}
@@ -183,7 +181,7 @@ export default function MessagesScreen() {
   );
 }
 
-function Header() {
+function Header({ onRefresh }: { onRefresh: () => void }) {
   const { colors } = useAppTheme();
 
   return (
@@ -206,12 +204,14 @@ function Header() {
         </Text>
       </View>
 
-      <View
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onRefresh}
         style={{ backgroundColor: colors.primarySoft }}
         className="h-12 w-12 items-center justify-center rounded-full"
       >
-        <MessageCircle size={22} color={colors.primary} />
-      </View>
+        <RefreshCcw size={20} color={colors.primary} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -275,7 +275,12 @@ function TelegramTabs({
         active={activeTab === "passengers"}
         title="Passengers"
         count={unreadPassengerCount}
-        icon={<Users size={16} color={activeTab === "passengers" ? "#FFFFFF" : colors.muted} />}
+        icon={
+          <Users
+            size={16}
+            color={activeTab === "passengers" ? "#FFFFFF" : colors.muted}
+          />
+        }
         onPress={() => setActiveTab("passengers")}
       />
 
@@ -283,7 +288,12 @@ function TelegramTabs({
         active={activeTab === "drivers"}
         title="Drivers"
         count={unreadDriverCount}
-        icon={<Car size={16} color={activeTab === "drivers" ? "#FFFFFF" : colors.muted} />}
+        icon={
+          <Car
+            size={16}
+            color={activeTab === "drivers" ? "#FFFFFF" : colors.muted}
+          />
+        }
         onPress={() => setActiveTab("drivers")}
       />
     </View>
@@ -359,11 +369,11 @@ function ChatListItem({ item, last }: { item: ChatItem; last?: boolean }) {
           className="h-14 w-14 items-center justify-center rounded-full"
         >
           <Text className="text-xl font-extrabold text-white">
-            {item.avatarLetter}
+            {item.avatarLetter || "U"}
           </Text>
         </View>
 
-        {item.isOnline && (
+        {item.unreadCount > 0 && (
           <View
             style={{ borderColor: colors.card, backgroundColor: colors.success }}
             className="absolute bottom-0 right-0 h-4 w-4 rounded-full border-2"
@@ -387,7 +397,7 @@ function ChatListItem({ item, last }: { item: ChatItem; last?: boolean }) {
             }}
             className="text-xs font-bold"
           >
-            {item.time}
+            {formatChatTime(item.lastMessageAt)}
           </Text>
         </View>
 
@@ -395,7 +405,9 @@ function ChatListItem({ item, last }: { item: ChatItem; last?: boolean }) {
           <CheckCheck size={14} color={colors.muted} />
 
           <Text
-            style={{ color: colors.muted }}
+            style={{
+              color: item.unreadCount > 0 ? colors.text : colors.muted,
+            }}
             className="flex-1 text-sm font-semibold"
             numberOfLines={1}
           >
@@ -429,25 +441,25 @@ function ChatListItem({ item, last }: { item: ChatItem; last?: boolean }) {
 
           <View
             style={{ backgroundColor: colors.input }}
-            className="rounded-full px-2.5 py-1"
+            className="max-w-[70%] rounded-full px-2.5 py-1"
           >
             <Text
               style={{ color: colors.muted }}
               className="text-[10px] font-bold"
               numberOfLines={1}
             >
-              {item.from} → {item.to}
+              {item.from || "Pickup"} → {item.to || "Drop"}
             </Text>
           </View>
 
-          <StatusPill status={item.status} />
+          <StatusPill status={normalizeStatus(item.rideStatus)} />
         </View>
       </View>
     </TouchableOpacity>
   );
 }
 
-function StatusPill({ status }: { status: ChatItem["status"] }) {
+function StatusPill({ status }: { status: "active" | "waiting" | "ended" }) {
   const { colors } = useAppTheme();
 
   const config = {
@@ -514,4 +526,44 @@ function EmptyChats({ activeTab }: { activeTab: ChatTab }) {
       </View>
     </View>
   );
+}
+
+function LoadingChats() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View className="items-center px-6 py-10">
+      <ActivityIndicator color={colors.primary} />
+      <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
+        Loading messages...
+      </Text>
+    </View>
+  );
+}
+
+function normalizeStatus(value?: string): "active" | "waiting" | "ended" {
+  const status = String(value || "").toLowerCase();
+
+  if (["completed", "cancelled", "canceled", "ended"].includes(status)) {
+    return "ended";
+  }
+
+  if (["pending", "waiting"].includes(status)) {
+    return "waiting";
+  }
+
+  return "active";
+}
+
+function formatChatTime(value?: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
