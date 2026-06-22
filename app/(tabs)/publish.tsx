@@ -6,6 +6,7 @@ import {
 import { getRouteOptionsApi, publishRideApi } from "@/services/ride.service";
 import { getMyVehiclesApi } from "@/services/vehicle.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { router } from "expo-router";
@@ -30,7 +31,6 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   Text,
@@ -40,14 +40,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-
-type DateOption = {
-  id: string;
-  label: string;
-  dateText: string;
-  fullText: string;
-  value: string;
-};
 
 type PickedPlace = {
   address: string;
@@ -65,49 +57,50 @@ type RouteOption = {
   duration_seconds?: number;
 };
 
-function getNextDates(): DateOption[] {
-  const today = new Date();
+function getInitialRideTime() {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + 60);
+  return date;
+}
 
-  return Array.from({ length: 14 }).map((_, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
+function formatApiDate(date: Date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-    return {
-      id: date.toISOString(),
-      label:
-        index === 0
-          ? "Today"
-          : index === 1
-            ? "Tomorrow"
-            : date.toLocaleDateString("en-IN", { weekday: "short" }),
-      dateText: date.toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-      }),
-      fullText: date.toLocaleDateString("en-IN", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-      }),
-      value: date.toISOString(),
-    };
+function formatApiTime(date: Date) {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}:00`;
+}
+
+function formatDisplayDate(date: Date) {
+  return date.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 }
 
-const quickTimes = [
-  "06:00 AM",
-  "07:30 AM",
-  "09:00 AM",
-  "12:00 PM",
-  "03:00 PM",
-  "06:00 PM",
-  "08:30 PM",
-];
+function formatDisplayTime(date: Date) {
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getDepartureDateTime(rideDate: Date, rideTime: Date) {
+  const date = new Date(rideDate);
+  date.setHours(rideTime.getHours(), rideTime.getMinutes(), 0, 0);
+  return date;
+}
 
 export default function PublishRideScreen() {
   const { colors } = useAppTheme();
   const queryClient = useQueryClient();
-  const dates = useMemo(() => getNextDates(), []);
 
   const [from, setFrom] = useState("Bhubaneswar");
   const [to, setTo] = useState("Cuttack");
@@ -123,27 +116,35 @@ export default function PublishRideScreen() {
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number | null>(
     null,
   );
+
   const [loadingRoutes, setLoadingRoutes] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<DateOption>(dates[0]);
-  const [time, setTime] = useState("09:30 AM");
   const [seats, setSeats] = useState(3);
   const [pricePerKm, setPricePerKm] = useState(10);
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
     null,
   );
   const [isLocationLoading, setIsLocationLoading] = useState(false);
-  const [dateModalVisible, setDateModalVisible] = useState(false);
+
+  const [rideDate, setRideDate] = useState(new Date());
+  const [rideTime, setRideTime] = useState(getInitialRideTime());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   const selectedRoute = routes.find(
-    route => (route.route_index ?? 0) === selectedRouteIndex
+    (route) => (route.route_index ?? 0) === selectedRouteIndex,
   );
+
+  const departureDateTime = useMemo(
+    () => getDepartureDateTime(rideDate, rideTime),
+    [rideDate, rideTime],
+  );
+
+  const isFutureDeparture = departureDateTime.getTime() > Date.now();
 
   const estimatedFullRoutePrice = useMemo(() => {
     if (!selectedRoute?.distance_meters) return 0;
     const distanceKm = selectedRoute.distance_meters / 1000;
-    return Math.round(
-      distanceKm * pricePerKm * seats
-    );
+    return Math.round(distanceKm * pricePerKm * seats);
   }, [selectedRoute, pricePerKm, seats]);
 
   const { data: vehiclesResponse, isLoading: vehiclesLoading } = useQuery({
@@ -166,11 +167,11 @@ export default function PublishRideScreen() {
   const isFormValid =
     !!from.trim() &&
     !!to.trim() &&
-    !!time.trim() &&
     !!selectedVehicleId &&
     seats > 0 &&
     pricePerKm > 0 &&
-    selectedRouteIndex !== null;
+    selectedRouteIndex !== null &&
+    isFutureDeparture;
 
   const publishMutation = useMutation({
     mutationFn: publishRideApi,
@@ -178,37 +179,13 @@ export default function PublishRideScreen() {
       toast.success("Ride published successfully.");
       await queryClient.invalidateQueries({ queryKey: ["home-bootstrap"] });
       await queryClient.invalidateQueries({ queryKey: ["rides"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-rides"] });
       router.push("/(tabs)/rides");
     },
     onError: (error: any) => {
       toast.error(error?.message || "Unable to publish ride.");
     },
   });
-
-  const formatApiDate = (date: DateOption) => {
-    const parsed = new Date(date.value);
-    const yyyy = parsed.getFullYear();
-    const mm = String(parsed.getMonth() + 1).padStart(2, "0");
-    const dd = String(parsed.getDate()).padStart(2, "0");
-
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const convertTo24Hour = (timeText: string) => {
-    const clean = timeText.trim().toUpperCase();
-    const match = clean.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/);
-
-    if (!match) return null;
-
-    let hour = Number(match[1]);
-    const minute = match[2];
-    const period = match[3];
-
-    if (period === "PM" && hour !== 12) hour += 12;
-    if (period === "AM" && hour === 12) hour = 0;
-
-    return `${String(hour).padStart(2, "0")}:${minute}:00`;
-  };
 
   const geocodeAddress = async (address: string) => {
     const result = await Location.geocodeAsync(address);
@@ -328,10 +305,16 @@ export default function PublishRideScreen() {
       const routeList: RouteOption[] = response?.data?.routes || [];
 
       setRoutes(routeList);
-      setSelectedRouteIndex(routeList.length > 0 ? routeList[0].route_index ?? 0 : null);
+      setSelectedRouteIndex(
+        routeList.length > 0 ? routeList[0].route_index ?? 0 : null,
+      );
 
       if (routeList.length > 0) {
-        toast.success(`${routeList.length} route option${routeList.length > 1 ? "s" : ""} found.`);
+        toast.success(
+          `${routeList.length} route option${
+            routeList.length > 1 ? "s" : ""
+          } found.`,
+        );
       } else {
         toast.error("No route found between these locations.");
       }
@@ -348,20 +331,23 @@ export default function PublishRideScreen() {
   const handlePublish = async () => {
     Keyboard.dismiss();
 
-    if (!isFormValid) {
-      toast.error("Please complete all details and select a route.");
-      return;
-    }
-
-    const departureTime = convertTo24Hour(time);
-
-    if (!departureTime) {
-      toast.error("Please enter time like 09:30 AM.");
-      return;
-    }
-
     if (!selectedVehicle) {
       toast.error("Please select a vehicle.");
+      return;
+    }
+
+    if (selectedRouteIndex === null) {
+      toast.error("Please find and select a route.");
+      return;
+    }
+
+    if (!isFutureDeparture) {
+      toast.error("Please select a future departure date and time.");
+      return;
+    }
+
+    if (!isFormValid) {
+      toast.error("Please complete all ride details.");
       return;
     }
 
@@ -384,8 +370,8 @@ export default function PublishRideScreen() {
 
         selected_route_index: selectedRouteIndex ?? 0,
 
-        ride_date: formatApiDate(selectedDate),
-        departure_time: departureTime,
+        ride_date: formatApiDate(rideDate),
+        departure_time: formatApiTime(rideTime),
 
         pet_allowed: "no",
         smoking_allowed: "no",
@@ -402,6 +388,33 @@ export default function PublishRideScreen() {
     }
   };
 
+  const handleDateChange = (_event: any, selected?: Date) => {
+    setShowDatePicker(false);
+
+    if (!selected) return;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const cleanSelected = new Date(selected);
+    cleanSelected.setHours(0, 0, 0, 0);
+
+    if (cleanSelected.getTime() < today.getTime()) {
+      toast.error("Past dates are not allowed.");
+      return;
+    }
+
+    setRideDate(cleanSelected);
+  };
+
+  const handleTimeChange = (_event: any, selected?: Date) => {
+    setShowTimePicker(false);
+
+    if (!selected) return;
+
+    setRideTime(selected);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
@@ -415,7 +428,7 @@ export default function PublishRideScreen() {
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingTop: Platform.OS === "android" ? 16 : 12,
-              paddingBottom: 230,
+              paddingBottom: 190,
             }}
           >
             <Header />
@@ -504,7 +517,7 @@ export default function PublishRideScreen() {
                         className="rounded-2xl border p-4"
                       >
                         <View className="flex-row items-center justify-between gap-3">
-                          <View className="flex-row flex-1 items-center gap-3">
+                          <View className="flex-1 flex-row items-center gap-3">
                             <View
                               style={{
                                 backgroundColor: selected
@@ -547,88 +560,88 @@ export default function PublishRideScreen() {
               )}
             </Card>
 
-            <SectionTitle title="Schedule" subtitle="Set a date and flexible departure time." />
+            <SectionTitle
+              title="Schedule"
+              subtitle="Select date and departure time using native picker."
+            />
 
             <Card>
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => setDateModalVisible(true)}
+                onPress={() => setShowDatePicker(true)}
                 style={{ backgroundColor: colors.input }}
                 className="mb-4 flex-row items-center gap-3 rounded-2xl px-4 py-4"
               >
-                <CalendarDays size={19} color={colors.primary} />
+                <CalendarDays size={20} color={colors.primary} />
 
                 <View className="flex-1">
-                  <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
-                    Date
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="text-xs font-bold uppercase"
+                  >
+                    Ride Date
                   </Text>
-                  <Text style={{ color: colors.text }} className="mt-1 text-base font-extrabold">
-                    {selectedDate.fullText}
+                  <Text
+                    style={{ color: colors.text }}
+                    className="mt-1 text-base font-extrabold"
+                  >
+                    {formatDisplayDate(rideDate)}
                   </Text>
                 </View>
 
-                <View
-                  style={{ backgroundColor: colors.primarySoft }}
-                  className="rounded-full px-3 py-1.5"
-                >
-                  <Text style={{ color: colors.primary }} className="text-xs font-bold">
-                    Change
-                  </Text>
-                </View>
+                <Text style={{ color: colors.primary }} className="text-xs font-bold">
+                  Change
+                </Text>
               </TouchableOpacity>
 
-              <View style={{ backgroundColor: colors.input }} className="rounded-2xl px-4 py-3">
-                <View className="mb-2 flex-row items-center gap-3">
-                  <Clock size={18} color={colors.primary} />
-                  <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => setShowTimePicker(true)}
+                style={{ backgroundColor: colors.input }}
+                className="flex-row items-center gap-3 rounded-2xl px-4 py-4"
+              >
+                <Clock size={20} color={colors.primary} />
+
+                <View className="flex-1">
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="text-xs font-bold uppercase"
+                  >
                     Departure Time
+                  </Text>
+                  <Text
+                    style={{ color: colors.text }}
+                    className="mt-1 text-base font-extrabold"
+                  >
+                    {formatDisplayTime(rideTime)}
                   </Text>
                 </View>
 
-                <TextInput
-                  value={time}
-                  onChangeText={setTime}
-                  placeholder="Example: 09:30 AM"
-                  placeholderTextColor={colors.muted}
-                  autoCorrect={false}
-                  style={{ color: colors.text }}
-                  className="text-base font-extrabold"
-                />
+                <Text style={{ color: colors.primary }} className="text-xs font-bold">
+                  Change
+                </Text>
+              </TouchableOpacity>
 
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  className="mt-4"
-                  contentContainerStyle={{ gap: 8 }}
+              {!isFutureDeparture && (
+                <View
+                  style={{ backgroundColor: colors.dangerSoft }}
+                  className="mt-4 flex-row items-start gap-2 rounded-2xl px-4 py-3"
                 >
-                  {quickTimes.map((item) => {
-                    const selected = item === time;
-
-                    return (
-                      <TouchableOpacity
-                        key={item}
-                        activeOpacity={0.85}
-                        onPress={() => setTime(item)}
-                        style={{
-                          backgroundColor: selected ? colors.primary : colors.card,
-                          borderColor: selected ? colors.primary : colors.border,
-                        }}
-                        className="rounded-full border px-4 py-2"
-                      >
-                        <Text
-                          style={{ color: selected ? "#FFFFFF" : colors.text }}
-                          className="text-xs font-bold"
-                        >
-                          {item}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+                  <AlertCircle size={16} color={colors.danger} />
+                  <Text
+                    style={{ color: colors.danger }}
+                    className="flex-1 text-xs font-bold leading-5"
+                  >
+                    Selected departure time is already past. Please choose a future time.
+                  </Text>
+                </View>
+              )}
             </Card>
 
-            <SectionTitle title="Vehicle Details" subtitle="Select a vehicle for this ride." />
+            <SectionTitle
+              title="Vehicle Details"
+              subtitle="Select a vehicle for this ride."
+            />
 
             <Card>
               {vehiclesLoading ? (
@@ -674,7 +687,9 @@ export default function PublishRideScreen() {
                         className="flex-row items-center gap-3 rounded-2xl border px-4 py-4"
                       >
                         <View
-                          style={{ backgroundColor: selected ? colors.primary : colors.card }}
+                          style={{
+                            backgroundColor: selected ? colors.primary : colors.card,
+                          }}
                           className="h-11 w-11 items-center justify-center rounded-2xl"
                         >
                           <Car size={20} color={selected ? "#FFFFFF" : colors.primary} />
@@ -721,36 +736,12 @@ export default function PublishRideScreen() {
               />
             </View>
 
-            <View
-              style={{ backgroundColor: colors.card, borderColor: colors.border }}
-              className="mt-7 rounded-[30px] border p-5"
-            >
-              <View className="flex-row items-center justify-between">
-                <View>
-                  <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
-                    Estimated earning
-                  </Text>
-                  <Text style={{ color: colors.text }} className="mt-2 text-3xl font-extrabold">
-                    {estimatedFullRoutePrice > 0
-                      ? `₹${estimatedFullRoutePrice}`
-                      : "--"}
-                  </Text>
-                </View>
-
-                <View
-                  style={{ backgroundColor: colors.primarySoft }}
-                  className="rounded-2xl px-4 py-2"
-                >
-                  <Text style={{ color: colors.primary }} className="text-xs font-extrabold">
-                    {seats} seat{seats > 1 ? "s" : ""} × ₹{pricePerKm}/km
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={{ color: colors.muted }} className="mt-3 text-xs leading-5">
-                Estimated for full route. Passengers can book partial route and pay only for their travelled distance.
-              </Text>
-            </View>
+            <SummaryCard
+              estimatedFullRoutePrice={estimatedFullRoutePrice}
+              seats={seats}
+              pricePerKm={pricePerKm}
+              selectedRoute={selectedRoute}
+            />
 
             {!isFormValid && (
               <View
@@ -758,70 +749,51 @@ export default function PublishRideScreen() {
                 className="mt-5 flex-row items-start gap-3 rounded-2xl px-4 py-3"
               >
                 <AlertCircle size={18} color={colors.danger} />
-                <Text style={{ color: colors.danger }} className="flex-1 text-xs font-bold leading-5">
-                  Complete all required fields and select a route to publish your ride.
+                <Text
+                  style={{ color: colors.danger }}
+                  className="flex-1 text-xs font-bold leading-5"
+                >
+                  Complete all required fields, select a future schedule, and choose a route.
                 </Text>
               </View>
             )}
           </ScrollView>
 
-          <View
-            style={{
-              backgroundColor: colors.card,
-              borderTopColor: colors.border,
-            }}
-            className="absolute bottom-[78px] left-0 right-0 border-t px-5 pb-4 pt-4"
-          >
-            <View className="mb-3 flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
-                  {from || "From"} → {to || "To"}
-                </Text>
-                <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
-                  {selectedDate.label} • {time} • {seats} seat{seats > 1 ? "s" : ""}
-                </Text>
-              </View>
+          {showDatePicker && (
+            <DateTimePicker
+              mode="date"
+              value={rideDate}
+              minimumDate={new Date()}
+              onValueChange={handleDateChange}
+            />
+          )}
 
-              <Text style={{ color: colors.primary }} className="text-xl font-extrabold">
-                ₹{pricePerKm}/km
-              </Text>
-            </View>
+          {showTimePicker && (
+            <DateTimePicker
+              mode="time"
+              value={rideTime}
+              is24Hour={false}
+              onValueChange={handleTimeChange}
+            />
+          )}
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handlePublish}
-              disabled={!isFormValid || publishMutation.isPending}
-              style={{
-                backgroundColor: isFormValid ? colors.primary : colors.muted,
-                opacity: publishMutation.isPending ? 0.75 : 1,
-              }}
-              className="rounded-2xl py-4"
-            >
-              {publishMutation.isPending ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text className="text-center text-base font-extrabold text-white">
-                  Publish Ride
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          <BottomPublishBar
+            from={from}
+            to={to}
+            rideDate={rideDate}
+            rideTime={rideTime}
+            seats={seats}
+            pricePerKm={pricePerKm}
+            isFormValid={isFormValid}
+            loading={publishMutation.isPending}
+            onPress={handlePublish}
+          />
         </KeyboardAvoidingView>
-
-        <DatePickerModal
-          visible={dateModalVisible}
-          dates={dates}
-          selectedDate={selectedDate}
-          onClose={() => setDateModalVisible(false)}
-          onSelect={(date) => {
-            setSelectedDate(date);
-            setDateModalVisible(false);
-          }}
-        />
       </SafeAreaView>
     </View>
   );
 }
+
 function PlaceInput({
   icon,
   label,
@@ -860,9 +832,7 @@ function PlaceInput({
         setSearching(true);
         const results = await searchIndiaPlaces(value);
 
-        if (mounted) {
-          setSuggestions(results);
-        }
+        if (mounted) setSuggestions(results);
       } catch (error) {
         console.log("PLACE SEARCH ERROR:", error);
       } finally {
@@ -1063,183 +1033,6 @@ function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) 
   );
 }
 
-// function RoutePreview({ from, to }: { from: string; to: string }) {
-//   const { colors } = useAppTheme();
-
-//   return (
-//     <View
-//       style={{ backgroundColor: colors.input, borderColor: colors.border }}
-//       className="mt-4 rounded-[26px] border p-4"
-//     >
-//       <View className="flex-row items-center gap-3">
-//         <View
-//           style={{ backgroundColor: colors.primary }}
-//           className="h-10 w-10 items-center justify-center rounded-full"
-//         >
-//           <MapPin size={18} color="#FFFFFF" />
-//         </View>
-
-//         <View className="h-1 flex-1 rounded-full bg-blue-500/30" />
-
-//         <View
-//           style={{ backgroundColor: colors.success }}
-//           className="h-10 w-10 items-center justify-center rounded-full"
-//         >
-//           <Route size={18} color="#FFFFFF" />
-//         </View>
-//       </View>
-
-//       <View className="mt-4 flex-row justify-between gap-4">
-//         <View className="flex-1">
-//           <Text style={{ color: colors.muted }} className="text-xs">
-//             Start
-//           </Text>
-//           <Text style={{ color: colors.text }} className="mt-1 font-extrabold" numberOfLines={1}>
-//             {from || "Starting city"}
-//           </Text>
-//         </View>
-
-//         <View className="flex-1 items-end">
-//           <Text style={{ color: colors.muted }} className="text-xs">
-//             Destination
-//           </Text>
-//           <Text style={{ color: colors.text }} className="mt-1 text-right font-extrabold" numberOfLines={1}>
-//             {to || "Destination city"}
-//           </Text>
-//         </View>
-//         <SectionTitle
-//           title="Route Selection"
-//           subtitle="Choose your preferred route."
-//         />
-
-//         <Card>
-//           <TouchableOpacity
-//             activeOpacity={0.85}
-//             onPress={handleFetchRoutes}
-//             style={{ backgroundColor: colors.primary }}
-//             className="rounded-2xl py-4"
-//           >
-//             {loadingRoutes ? (
-//               <ActivityIndicator color="#fff" />
-//             ) : (
-//               <Text className="text-center font-extrabold text-white">
-//                 Find Routes
-//               </Text>
-//             )}
-//           </TouchableOpacity>
-
-//           {routes.length > 0 && (
-//             <View className="mt-4 gap-3">
-//               {routes.map((route) => {
-//                 const selected =
-//                   selectedRouteIndex === route.route_index;
-
-//                 return (
-//                   <TouchableOpacity
-//                     key={route.route_index}
-//                     activeOpacity={0.85}
-//                     onPress={() =>
-//                       setSelectedRouteIndex(route.route_index)
-//                     }
-//                     style={{
-//                       backgroundColor: selected
-//                         ? colors.primarySoft
-//                         : colors.input,
-//                       borderColor: selected
-//                         ? colors.primary
-//                         : colors.border,
-//                     }}
-//                     className="rounded-2xl border p-4"
-//                   >
-//                     <View className="flex-row justify-between">
-//                       <Text
-//                         style={{ color: colors.text }}
-//                         className="font-extrabold"
-//                       >
-//                         {route.summary || "Recommended Route"}
-//                       </Text>
-
-//                       {selected && (
-//                         <Check
-//                           size={18}
-//                           color={colors.primary}
-//                         />
-//                       )}
-//                     </View>
-
-//                     <Text
-//                       style={{ color: colors.muted }}
-//                       className="mt-2 text-xs"
-//                     >
-//                       {route.distance_text}
-//                     </Text>
-
-//                     <Text
-//                       style={{ color: colors.muted }}
-//                       className="mt-1 text-xs"
-//                     >
-//                       {route.duration_text}
-//                     </Text>
-//                   </TouchableOpacity>
-//                 );
-//               })}
-//             </View>
-//           )}
-//         </Card>
-//       </View>
-//     </View>
-//   );
-// }
-
-function AppInput({
-  icon,
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  last,
-  autoCapitalize,
-  rightAction,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder: string;
-  last?: boolean;
-  autoCapitalize?: "none" | "sentences" | "words" | "characters";
-  rightAction?: React.ReactNode;
-}) {
-  const { colors } = useAppTheme();
-
-  return (
-    <View className={last ? "" : "mb-4"}>
-      <Text style={{ color: colors.muted }} className="mb-2 text-xs font-bold uppercase">
-        {label}
-      </Text>
-
-      <View
-        style={{ backgroundColor: colors.input }}
-        className="min-h-[56px] flex-row items-center gap-3 rounded-2xl px-4 py-3"
-      >
-        {icon}
-
-        <TextInput
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.muted}
-          autoCapitalize={autoCapitalize}
-          style={{ color: colors.text }}
-          className="flex-1 text-base font-semibold"
-        />
-
-        {rightAction}
-      </View>
-    </View>
-  );
-}
-
 function CounterCard({
   icon,
   label,
@@ -1297,92 +1090,120 @@ function CounterCard({
   );
 }
 
-function DatePickerModal({
-  visible,
-  dates,
-  selectedDate,
-  onClose,
-  onSelect,
+function SummaryCard({
+  estimatedFullRoutePrice,
+  seats,
+  pricePerKm,
+  selectedRoute,
 }: {
-  visible: boolean;
-  dates: DateOption[];
-  selectedDate: DateOption;
-  onClose: () => void;
-  onSelect: (date: DateOption) => void;
+  estimatedFullRoutePrice: number;
+  seats: number;
+  pricePerKm: number;
+  selectedRoute?: RouteOption;
 }) {
   const { colors } = useAppTheme();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/60">
+    <View
+      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      className="mt-7 rounded-[30px] border p-5"
+    >
+      <View className="flex-row items-center justify-between">
+        <View>
+          <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+            Estimated earning
+          </Text>
+          <Text style={{ color: colors.text }} className="mt-2 text-3xl font-extrabold">
+            {estimatedFullRoutePrice > 0 ? `₹${estimatedFullRoutePrice}` : "--"}
+          </Text>
+        </View>
+
         <View
-          style={{
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          }}
-          className="rounded-t-[34px] border px-5 pb-8 pt-5"
+          style={{ backgroundColor: colors.primarySoft }}
+          className="rounded-2xl px-4 py-2"
         >
-          <View className="mb-5 flex-row items-center justify-between">
-            <View>
-              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                Select date
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-                Choose your ride departure date
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={onClose}
-              style={{ backgroundColor: colors.input }}
-              className="h-10 w-10 items-center justify-center rounded-full"
-            >
-              <X size={18} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <View className="flex-row flex-wrap gap-3">
-            {dates.map((date) => {
-              const selected = date.id === selectedDate.id;
-
-              return (
-                <TouchableOpacity
-                  key={date.id}
-                  activeOpacity={0.85}
-                  onPress={() => onSelect(date)}
-                  style={{
-                    backgroundColor: selected ? colors.primary : colors.input,
-                    borderColor: selected ? colors.primary : colors.border,
-                    width: "30.8%",
-                  }}
-                  className="items-center rounded-2xl border px-2 py-4"
-                >
-                  <Text
-                    style={{ color: selected ? "#FFFFFF" : colors.muted }}
-                    className="text-xs font-bold"
-                  >
-                    {date.label}
-                  </Text>
-
-                  <Text
-                    style={{ color: selected ? "#FFFFFF" : colors.text }}
-                    className="mt-1 font-extrabold"
-                  >
-                    {date.dateText}
-                  </Text>
-
-                  {selected && (
-                    <View className="mt-2">
-                      <Check size={16} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <Text style={{ color: colors.primary }} className="text-xs font-extrabold">
+            {seats} seat{seats > 1 ? "s" : ""} × ₹{pricePerKm}/km
+          </Text>
         </View>
       </View>
-    </Modal>
+
+      <Text style={{ color: colors.muted }} className="mt-3 text-xs leading-5">
+        {selectedRoute
+          ? `${selectedRoute.distance_text || "Distance unavailable"} • ${
+              selectedRoute.duration_text || "Duration unavailable"
+            }`
+          : "Select route to calculate full route earning."}
+      </Text>
+    </View>
+  );
+}
+
+function BottomPublishBar({
+  from,
+  to,
+  rideDate,
+  rideTime,
+  seats,
+  pricePerKm,
+  isFormValid,
+  loading,
+  onPress,
+}: {
+  from: string;
+  to: string;
+  rideDate: Date;
+  rideTime: Date;
+  seats: number;
+  pricePerKm: number;
+  isFormValid: boolean;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderTopColor: colors.border,
+      }}
+      className="absolute bottom-0 left-0 right-0 border-t px-5 pb-8 pt-4"
+    >
+      <View className="mb-3 flex-row items-center justify-between">
+        <View className="flex-1">
+          <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+            {from || "From"} → {to || "To"}
+          </Text>
+          <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
+            {formatDisplayDate(rideDate)} • {formatDisplayTime(rideTime)} •{" "}
+            {seats} seat{seats > 1 ? "s" : ""}
+          </Text>
+        </View>
+
+        <Text style={{ color: colors.primary }} className="text-xl font-extrabold">
+          ₹{pricePerKm}/km
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onPress}
+        disabled={!isFormValid || loading}
+        style={{
+          backgroundColor: isFormValid ? colors.primary : colors.muted,
+          opacity: loading ? 0.75 : 1,
+        }}
+        className="rounded-2xl py-4"
+      >
+        {loading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text className="text-center text-base font-extrabold text-white">
+            Publish Ride
+          </Text>
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
