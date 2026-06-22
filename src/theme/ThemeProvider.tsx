@@ -1,11 +1,11 @@
 import * as SecureStore from "expo-secure-store";
 import {
-    createContext,
-    ReactNode,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 import { useColorScheme } from "react-native";
 import { AppColors, darkColors, lightColors, ThemeMode } from "./tokens";
@@ -24,20 +24,28 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
-  const [mode, setMode] = useState<ThemeMode>("system");
+  const [mode, setMode] = useState<ThemeMode>("dark");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     async function loadTheme() {
-      const saved = await SecureStore.getItemAsync(THEME_KEY);
-
-      if (saved === "light" || saved === "dark" || saved === "system") {
-        setMode(saved);
+      try {
+        const saved = await SecureStore.getItemAsync(THEME_KEY);
+        if (
+          saved === "light" ||
+          saved === "dark" ||
+          saved === "system"
+        ) {
+          setMode(saved);
+        } else {
+          setMode("dark");
+        }
+      } catch {
+        setMode("dark");
       }
 
       setReady(true);
     }
-
     loadTheme();
   }, []);
 
