@@ -9,14 +9,15 @@ import {
   Car,
   ChevronRight,
   CreditCard,
-  Gift,
   HelpCircle,
   LogOut,
+  MessageCircle,
   Route,
   Settings,
   ShieldCheck,
   Star,
-  X,
+  Trophy,
+  X
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -223,26 +224,27 @@ export default function ProfileScreen() {
             />
           </View>
 
-          <Section title="Rewards">
+          <Section title="Account">
             <MenuItem
-              icon={<Gift size={20} color={colors.primary} />}
-              title="Rewards"
-              subtitle={
-                verification.canRedeem
-                  ? "Points, badges, and referral benefits"
-                  : "Complete verification before redeeming"
-              }
-              onPress={() => router.push("/rewards")}
+              icon={<MessageCircle size={20} color={colors.primary} />}
+              title="Messages"
+              subtitle="Chat with drivers and passengers"
+              onPress={() => router.push("/messages" as any)}
               last
             />
-          </Section>
 
-          <Section title="Account">
             <MenuItem
               icon={<Car size={20} color={colors.primary} />}
               title="My Vehicles"
               subtitle="Manage cars used for rides"
               onPress={() => router.push("/vehicles")}
+            />
+
+            <MenuItem
+              icon={<Trophy size={20} color={colors.primary} />}
+              title="Rewards"
+              subtitle="Points and achievements"
+              onPress={() => router.push("/rewards")}
               last
             />
           </Section>
