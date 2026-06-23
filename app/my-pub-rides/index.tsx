@@ -99,6 +99,13 @@ export default function MyPublishedRidesScreen() {
               <ArrowLeft size={22} color={colors.text} />
             </TouchableOpacity>
 
+            <Text
+              style={{ color: colors.text }}
+              className="mt-1 text-xl font-extrabold"
+            >
+              My Published Rides
+            </Text>
+
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => router.push("/(tabs)/publish")}
@@ -111,18 +118,13 @@ export default function MyPublishedRidesScreen() {
 
           <View className="mt-6">
             <Text
-              style={{ color: colors.muted }}
-              className="text-sm font-semibold"
+              style={{ color: colors.text }}
+              className="text-md font-semibold"
             >
               Driver dashboard
             </Text>
 
-            <Text
-              style={{ color: colors.text }}
-              className="mt-1 text-3xl font-extrabold"
-            >
-              My Published Rides
-            </Text>
+
 
             <Text
               style={{ color: colors.muted }}
