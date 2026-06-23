@@ -196,7 +196,7 @@ function Header({ onRefresh }: { onRefresh: () => void }) {
       </TouchableOpacity>
 
       <View className="flex-1">
-        <Text style={{ color: colors.text }} className="text-2xl font-extrabold">
+        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
           Messages
         </Text>
         <Text style={{ color: colors.muted }} className="mt-1 text-sm">

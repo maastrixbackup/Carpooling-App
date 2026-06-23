@@ -1,23 +1,26 @@
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { router } from "expo-router";
 import {
+  AlertTriangle,
   ArrowLeft,
-  Bell,
   ChevronRight,
+  FileText,
   Globe2,
   Lock,
   MapPin,
   Moon,
   ShieldCheck,
   Sun,
-  UserCog,
+  Trash2,
+  X
 } from "lucide-react-native";
-import { Platform, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function SettingsScreen() {
   const { colors, isDark, toggleTheme } = useAppTheme();
-
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
@@ -66,21 +69,9 @@ export default function SettingsScreen() {
             />
           </Section>
 
-          <Section title="Alerts">
-            <SettingRow
-              icon={<Bell size={20} color={colors.primary} />}
-              title="Notifications"
-              subtitle="Ride alerts, booking updates, and reminders"
-              onPress={() => router.push("/notifications")}
-            />
-          </Section>
+
 
           <Section title="Account & Safety">
-            <SettingRow
-              icon={<UserCog size={20} color={colors.primary} />}
-              title="Account Preferences"
-              subtitle="Profile, saved vehicle, and travel settings"
-            />
 
             <SettingRow
               icon={<ShieldCheck size={20} color={colors.success} />}
@@ -92,11 +83,63 @@ export default function SettingsScreen() {
               icon={<Lock size={20} color={colors.primary} />}
               title="Privacy"
               subtitle="Control visibility and data preferences"
+              onPress={() => router.push("/privacy-policy" as any)}
+            />
+
+            <SettingRow
+              icon={<FileText size={20} color={colors.primary} />}
+              title="Terms & Conditions"
+              subtitle="Rules for using Car Pooling"
+              onPress={() => router.push("/terms-conditions" as any)}
+            />
+
+            <SettingRow
+              icon={<Trash2 size={20} color={colors.danger} />}
+              title="Delete Account"
+              subtitle="Request account deletion after 15days"
+              onPress={() => setDeleteModalVisible(true)}
               last
             />
           </Section>
+          <View
+            style={{
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+            }}
+            className="mt-8 pt-5 items-center"
+          >
+            <Text
+              style={{ color: colors.muted }}
+              className="text-xs"
+            >
+              CarPooling v1.0.0
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              Effective Date: 22 June 2026
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              © 2026 CarPooling. All rights reserved.
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
+      <DeleteAccountModal
+        visible={deleteModalVisible}
+        onClose={() => setDeleteModalVisible(false)}
+        onConfirm={() => {
+          setDeleteModalVisible(false);
+          // Later call API here
+          // requestDeleteAccountMutation.mutate()
+        }}
+      />
     </View>
   );
 }
@@ -188,5 +231,232 @@ function SettingRow({
 
       {right ?? <ChevronRight size={19} color={colors.muted} />}
     </TouchableOpacity>
+  );
+}
+
+
+function DeleteAccountModal({
+  visible,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { colors } = useAppTheme();
+  const { height, width } = useWindowDimensions();
+  const [confirmText, setConfirmText] = useState("");
+
+  const canDelete = confirmText.trim().toLowerCase() === "delete";
+  const modalMaxHeight = Math.min(height * 0.86, 720);
+  const modalWidth = Math.min(width - 32, 520);
+
+  useEffect(() => {
+    if (!visible) setConfirmText("");
+  }, [visible]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+      >
+        <View className="flex-1 items-center justify-center bg-black/75 px-4">
+          <View
+            style={{
+              width: modalWidth,
+              maxHeight: modalMaxHeight,
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            }}
+            className="overflow-hidden rounded-[30px] border"
+          >
+            <View className="px-5 pt-5">
+              <View className="flex-row items-start justify-between gap-4">
+                <View
+                  style={{ backgroundColor: colors.dangerSoft }}
+                  className="h-13 w-13 items-center justify-center rounded-2xl"
+                >
+                  <AlertTriangle size={26} color={colors.danger} />
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={onClose}
+                  style={{ backgroundColor: colors.input }}
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                >
+                  <X size={18} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <Text
+                style={{ color: colors.text }}
+                className="mt-5 text-2xl font-extrabold"
+              >
+                Delete Account Request
+              </Text>
+
+              <Text
+                style={{ color: colors.muted }}
+                className="mt-2 text-sm leading-6"
+              >
+                Your account will be scheduled for deletion after 15 days. You
+                can contact support during this period if the request was made
+                by mistake.
+              </Text>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 20,
+                paddingBottom: 20,
+              }}
+            >
+              <DeleteInfoCard
+                title="What will be deleted"
+                items={[
+                  "Your profile information",
+                  "Login access to the app",
+                  "Saved preferences and notification tokens",
+                  "Personal account data not required for legal or safety records",
+                ]}
+              />
+
+              <DeleteInfoCard
+                title="What may remain"
+                danger
+                items={[
+                  "Completed ride history for safety, dispute, fraud prevention, and company policy",
+                  "Payment, reward, and transaction records where legally required",
+                  "Reports, complaints, or support records linked to platform safety",
+                  "Anonymized analytics that no longer directly identify you",
+                ]}
+              />
+
+              <DeleteInfoCard
+                title="Important"
+                items={[
+                  "You will be logged out after submitting the request",
+                  "You may lose access to rewards, bookings, messages, and vehicles",
+                  "This action is not immediate. The deletion process starts after the 15-day waiting period",
+                ]}
+              />
+
+              <View className="mt-2">
+                <Text
+                  style={{ color: colors.text }}
+                  className="mb-2 font-extrabold"
+                >
+                  Type DELETE to continue
+                </Text>
+
+                <TextInput
+                  value={confirmText}
+                  onChangeText={setConfirmText}
+                  placeholder="Type DELETE"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  style={{
+                    color: colors.text,
+                    backgroundColor: colors.input,
+                    borderColor: canDelete ? colors.danger : colors.border,
+                  }}
+                  className="rounded-2xl border px-4 py-4 text-base font-bold"
+                />
+              </View>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                disabled={!canDelete}
+                onPress={onConfirm}
+                style={{
+                  backgroundColor: canDelete ? colors.danger : colors.input,
+                  opacity: canDelete ? 1 : 0.6,
+                }}
+                className="mt-5 rounded-2xl py-4"
+              >
+                <Text
+                  className="text-center text-base font-extrabold"
+                  style={{ color: canDelete ? "#FFFFFF" : colors.muted }}
+                >
+                  Request Account Deletion
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={onClose}
+                className="mt-3 rounded-2xl py-4"
+                style={{ backgroundColor: colors.input }}
+              >
+                <Text
+                  style={{ color: colors.text }}
+                  className="text-center text-base font-extrabold"
+                >
+                  Keep My Account
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function DeleteInfoCard({
+  title,
+  items,
+  danger,
+}: {
+  title: string;
+  items: string[];
+  danger?: boolean;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: danger ? colors.dangerSoft : colors.input,
+        borderColor: danger ? colors.danger : colors.border,
+      }}
+      className="mb-4 rounded-2xl border p-4"
+    >
+      <Text
+        style={{ color: danger ? colors.danger : colors.text }}
+        className="font-extrabold"
+      >
+        {title}
+      </Text>
+
+      <View className="mt-3 gap-2">
+        {items.map((item) => (
+          <View key={item} className="flex-row gap-2">
+            <Text style={{ color: danger ? colors.danger : colors.muted }}>
+              •
+            </Text>
+            <Text
+              style={{ color: danger ? colors.danger : colors.muted }}
+              className="flex-1 text-xs leading-5"
+            >
+              {item}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }

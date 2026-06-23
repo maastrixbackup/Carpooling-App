@@ -1,13 +1,6 @@
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { router } from "expo-router";
-import {
-    ArrowLeft,
-    Database,
-    Lock,
-    MapPin,
-    ShieldCheck,
-    UserCheck,
-} from "lucide-react-native";
+import { ArrowLeft, ShieldCheck } from "lucide-react-native";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -22,125 +15,192 @@ export default function PrivacyPolicyScreen() {
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: Platform.OS === "android" ? 16 : 12,
-            paddingBottom: 90,
+            paddingBottom: 120,
           }}
         >
-          <Header title="Privacy Policy" subtitle="How we collect and protect your data" />
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              }}
+              className="h-11 w-11 items-center justify-center rounded-full border"
+            >
+              <ArrowLeft size={22} color={colors.text} />
+            </TouchableOpacity>
 
-          <HeroCard />
+            <View>
+              <Text
+                style={{ color: colors.text }}
+                className="text-2xl font-extrabold"
+              >
+                Privacy Policy
+              </Text>
+
+              <Text
+                style={{ color: colors.muted }}
+                className="text-sm mt-1"
+              >
+                Last updated: June 2026
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: colors.primarySoft,
+              borderColor: colors.border,
+            }}
+            className="mt-6 rounded-[28px] border p-5"
+          >
+            <View className="flex-row items-center gap-3">
+              <ShieldCheck size={24} color={colors.primary} />
+
+              <View className="flex-1">
+                <Text
+                  style={{ color: colors.text }}
+                  className="font-extrabold"
+                >
+                  Your Privacy Matters
+                </Text>
+
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-1 text-xs leading-5"
+                >
+                  We collect only the information required to operate ride
+                  sharing services safely and securely.
+                </Text>
+              </View>
+            </View>
+          </View>
 
           <PolicySection
-            icon={<UserCheck size={20} color={colors.primary} />}
-            title="Information We Collect"
-            body="We may collect your name, phone number, email address, profile details, ride preferences, vehicle details, and booking activity when you use the app."
+            title="1. Information We Collect"
+            content="
+• Profile information such as name, email, phone number and profile photo.
+
+• Vehicle information including registration details and verification documents.
+
+• Ride information including routes, bookings and trip history.
+
+• Device information required for app functionality and security.
+"
           />
 
           <PolicySection
-            icon={<MapPin size={20} color={colors.primary} />}
-            title="Location Information"
-            body="Location access is used to detect pickup points, show nearby rides, calculate routes, and improve ride matching. You can disable location permission from your device settings."
+            title="2. How We Use Information"
+            content="
+• Create and manage your account.
+
+• Match drivers and passengers.
+
+• Improve ride safety and fraud prevention.
+
+• Send notifications regarding rides, bookings and messages.
+
+• Provide customer support.
+"
           />
 
           <PolicySection
-            icon={<Database size={20} color={colors.primary} />}
-            title="How We Use Data"
-            body="We use your information to create rides, show available trips, manage bookings, improve safety, personalize experience, and provide app notifications."
+            title="3. Location Information"
+            content="
+Location information is used only to provide ride search, route matching, navigation assistance and safety related services.
+"
           />
 
           <PolicySection
-            icon={<ShieldCheck size={20} color={colors.success} />}
-            title="Safety & Verification"
-            body="We may use profile, phone, ride, and vehicle information to support user verification, trust, safety checks, and fraud prevention."
+            title="4. Information Sharing"
+            content="
+We do not sell your personal information. Information may only be shared with ride participants, legal authorities when required, or trusted service providers helping operate the platform.
+"
           />
 
           <PolicySection
-            icon={<Lock size={20} color={colors.primary} />}
-            title="Data Protection"
-            body="We aim to protect your data using reasonable security practices. No system is completely risk-free, so users should avoid sharing sensitive information unnecessarily."
+            title="5. Security"
+            content="
+We use reasonable security measures to protect your data. However, no internet service can guarantee absolute security.
+"
           />
 
-          <Text style={{ color: colors.muted }} className="mt-7 text-xs leading-5">
-            Last updated: January 2026. This screen is a starter policy draft. Review with a legal professional before publishing.
-          </Text>
+          <PolicySection
+            title="6. Account Deletion"
+            content="
+Users may request account deletion through the application or by contacting support. Some information may be retained where required by law.
+"
+          />
+
+          <PolicySection
+            title="7. Contact"
+            content="
+For privacy related concerns please contact support through the application.
+"
+          />
+          <View
+            style={{
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+            }}
+            className="mt-8 pt-5 items-center"
+          >
+            <Text
+              style={{ color: colors.muted }}
+              className="text-xs"
+            >
+              CarPooling v1.0.0
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              Effective Date: 22 June 2026
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              © 2026 CarPooling. All rights reserved.
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
-function Header({ title, subtitle }: { title: string; subtitle: string }) {
-  const { colors } = useAppTheme();
-
-  return (
-    <View className="flex-row items-center gap-4">
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="h-11 w-11 items-center justify-center rounded-full border"
-      >
-        <ArrowLeft size={22} color={colors.text} />
-      </TouchableOpacity>
-
-      <View className="flex-1">
-        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          {title}
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          {subtitle}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-function HeroCard() {
-  const { colors } = useAppTheme();
-
-  return (
-    <View style={{ backgroundColor: colors.primary }} className="mt-6 overflow-hidden rounded-[34px] p-6">
-      <View className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
-      <ShieldCheck size={28} color="#FFFFFF" />
-      <Text className="mt-4 text-3xl font-extrabold text-white">
-        Your privacy matters
-      </Text>
-      <Text className="mt-2 text-sm leading-5 text-blue-100">
-        We only collect information needed to provide safe and reliable car pooling features.
-      </Text>
-    </View>
-  );
-}
-
 function PolicySection({
-  icon,
   title,
-  body,
+  content,
 }: {
-  icon: React.ReactNode;
   title: string;
-  body: string;
+  content: string;
 }) {
   const { colors } = useAppTheme();
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-5 rounded-[28px] border p-5"
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+      }}
+      className="mt-4 rounded-[24px] border p-5"
     >
-      <View className="flex-row items-center gap-3">
-        <View
-          style={{ backgroundColor: colors.primarySoft }}
-          className="h-11 w-11 items-center justify-center rounded-2xl"
-        >
-          {icon}
-        </View>
+      <Text
+        style={{ color: colors.text }}
+        className="text-base font-extrabold"
+      >
+        {title}
+      </Text>
 
-        <Text style={{ color: colors.text }} className="flex-1 text-lg font-extrabold">
-          {title}
-        </Text>
-      </View>
-
-      <Text style={{ color: colors.muted }} className="mt-4 text-sm leading-6">
-        {body}
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-3 text-sm leading-6"
+      >
+        {content}
       </Text>
     </View>
   );
