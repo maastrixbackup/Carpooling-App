@@ -278,6 +278,7 @@ export default function ProfileScreen() {
               icon={<HelpCircle size={20} color={colors.primary} />}
               title="Help & Support"
               subtitle="Get help with rides and bookings"
+              onPress={() => router.push("/help-support" as any)}
               last
             />
           </Section>

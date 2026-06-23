@@ -6,3 +6,23 @@ export async function getMeApi() {
     method: "GET",
   });
 }
+
+// Account Deletion
+
+export async function getDeleteRequestApi() {
+  return apiClient("/account/delete-request", {
+    method: "GET",
+  });
+}
+
+export async function requestDeleteAccountApi() {
+  return apiClient("/account/delete-request", {
+    method: "POST",
+  });
+}
+
+export async function cancelDeleteAccountApi() {
+  return apiClient("/account/delete-request/cancel", {
+    method: "POST",
+  });
+}
