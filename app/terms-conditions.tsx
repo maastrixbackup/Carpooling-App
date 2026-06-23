@@ -1,17 +1,10 @@
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { router } from "expo-router";
-import {
-    AlertTriangle,
-    ArrowLeft,
-    Car,
-    FileText,
-    ShieldCheck,
-    UserCheck,
-} from "lucide-react-native";
+import { ArrowLeft, FileText } from "lucide-react-native";
 import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function TermsConditionsScreen() {
+export default function TermsScreen() {
   const { colors } = useAppTheme();
 
   return (
@@ -22,117 +15,183 @@ export default function TermsConditionsScreen() {
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: Platform.OS === "android" ? 16 : 12,
-            paddingBottom: 90,
+            paddingBottom: 120,
           }}
         >
-          <Header title="Terms & Conditions" subtitle="Rules for using the car pooling app" />
+          <View className="flex-row items-center gap-4">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              }}
+              className="h-11 w-11 items-center justify-center rounded-full border"
+            >
+              <ArrowLeft size={22} color={colors.text} />
+            </TouchableOpacity>
 
-          <View style={{ backgroundColor: colors.primary }} className="mt-6 overflow-hidden rounded-[34px] p-6">
-            <View className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
-            <FileText size={28} color="#FFFFFF" />
-            <Text className="mt-4 text-3xl font-extrabold text-white">
-              Ride responsibly
-            </Text>
-            <Text className="mt-2 text-sm leading-5 text-blue-100">
-              These terms define basic rules for drivers, passengers, bookings, payments, and safety.
-            </Text>
+            <View>
+              <Text
+                style={{ color: colors.text }}
+                className="text-2xl font-extrabold"
+              >
+                Terms & Conditions
+              </Text>
+
+              <Text
+                style={{ color: colors.muted }}
+                className="text-sm mt-1"
+              >
+                Last updated: June 2026
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={{
+              backgroundColor: colors.primarySoft,
+              borderColor: colors.border,
+            }}
+            className="mt-6 rounded-[28px] border p-5"
+          >
+            <View className="flex-row items-center gap-3">
+              <FileText size={24} color={colors.primary} />
+
+              <View className="flex-1">
+                <Text
+                  style={{ color: colors.text }}
+                  className="font-extrabold"
+                >
+                  User Agreement
+                </Text>
+
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-1 text-xs leading-5"
+                >
+                  By using Carpooling you agree to the following terms and
+                  responsibilities.
+                </Text>
+              </View>
+            </View>
           </View>
 
           <TermsSection
-            icon={<UserCheck size={20} color={colors.primary} />}
-            title="User Responsibilities"
-            body="Users must provide accurate information, use the app lawfully, and avoid misleading ride, vehicle, identity, or payment details."
+            title="1. Eligibility"
+            content="
+Users must be legally eligible to drive or travel and provide accurate information during registration.
+"
           />
 
           <TermsSection
-            icon={<Car size={20} color={colors.primary} />}
-            title="Driver Responsibilities"
-            body="Drivers are responsible for vehicle condition, legal driving requirements, safe driving behavior, and accurate ride details before publishing trips."
+            title="2. Ride Responsibilities"
+            content="
+Drivers are responsible for maintaining valid licenses, insurance and vehicle documents.
+
+Passengers must behave respectfully and follow local laws.
+"
           />
 
           <TermsSection
-            icon={<ShieldCheck size={20} color={colors.success} />}
-            title="Passenger Responsibilities"
-            body="Passengers should verify ride details, arrive on time, behave respectfully, and follow basic safety practices during the trip."
+            title="3. Safety"
+            content="
+Users must not engage in illegal, abusive, fraudulent or unsafe activities while using the platform.
+"
           />
 
           <TermsSection
-            icon={<AlertTriangle size={20} color="#F59E0B" />}
-            title="Bookings & Cancellations"
-            body="Bookings, cancellations, refunds, and payment rules may vary based on future app policies. Demo bookings are currently for testing only."
+            title="4. Payments & Rewards"
+            content="
+Rewards and future redemption programs may be modified or discontinued at any time.
+
+Ride payments remain subject to applicable platform rules.
+"
           />
 
           <TermsSection
-            icon={<FileText size={20} color={colors.primary} />}
-            title="Limitation of Liability"
-            body="The app is a platform to connect drivers and passengers. Final travel decisions, safety judgment, and compliance remain the responsibility of users."
+            title="5. Account Suspension"
+            content="
+Accounts may be suspended or terminated for policy violations, fraud, abuse or safety concerns.
+"
           />
 
-          <Text style={{ color: colors.muted }} className="mt-7 text-xs leading-5">
-            Last updated: January 2026. This is a starter terms draft. Review with a legal professional before production release.
-          </Text>
+          <TermsSection
+            title="6. Liability"
+            content="
+The platform facilitates ride matching between users and is not responsible for user conduct, delays, accidents or losses occurring during rides.
+"
+          />
+
+          <TermsSection
+            title="7. Updates"
+            content="
+These terms may be updated periodically. Continued use of the application constitutes acceptance of revised terms.
+"
+          />
+
+          <View
+            style={{
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+            }}
+            className="mt-8 pt-5 items-center"
+          >
+            <Text
+              style={{ color: colors.muted }}
+              className="text-xs"
+            >
+              CarPooling v1.0.0
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              Effective Date: 22 June 2026
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              © 2026 CarPooling. All rights reserved.
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
-function Header({ title, subtitle }: { title: string; subtitle: string }) {
-  const { colors } = useAppTheme();
-
-  return (
-    <View className="flex-row items-center gap-4">
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="h-11 w-11 items-center justify-center rounded-full border"
-      >
-        <ArrowLeft size={22} color={colors.text} />
-      </TouchableOpacity>
-
-      <View className="flex-1">
-        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          {title}
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          {subtitle}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 function TermsSection({
-  icon,
   title,
-  body,
+  content,
 }: {
-  icon: React.ReactNode;
   title: string;
-  body: string;
+  content: string;
 }) {
   const { colors } = useAppTheme();
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-5 rounded-[28px] border p-5"
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+      }}
+      className="mt-4 rounded-[24px] border p-5"
     >
-      <View className="flex-row items-center gap-3">
-        <View
-          style={{ backgroundColor: colors.primarySoft }}
-          className="h-11 w-11 items-center justify-center rounded-2xl"
-        >
-          {icon}
-        </View>
+      <Text
+        style={{ color: colors.text }}
+        className="text-base font-extrabold"
+      >
+        {title}
+      </Text>
 
-        <Text style={{ color: colors.text }} className="flex-1 text-lg font-extrabold">
-          {title}
-        </Text>
-      </View>
-
-      <Text style={{ color: colors.muted }} className="mt-4 text-sm leading-6">
-        {body}
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-3 text-sm leading-6"
+      >
+        {content}
       </Text>
     </View>
   );

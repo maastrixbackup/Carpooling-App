@@ -1,7 +1,7 @@
 import {
-    getChatMessagesApi,
-    markChatReadApi,
-    sendChatMessageApi,
+  getChatMessagesApi,
+  markChatReadApi,
+  sendChatMessageApi,
 } from "@/services/chat.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
@@ -9,15 +9,15 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, SendHorizonal, User } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { io, Socket } from "socket.io-client";
@@ -222,7 +222,7 @@ export default function ChatRoomScreen() {
               style={{ color: socketConnected ? colors.success : colors.muted }}
               className="text-xs font-semibold"
             >
-              {socketConnected ? "Online" : "Connecting..."}
+              {socketConnected ? "Available" : "Connecting..."}
             </Text>
           </View>
         </View>

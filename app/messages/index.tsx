@@ -4,26 +4,26 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
-    ArrowLeft,
-    Car,
-    CheckCheck,
-    RefreshCcw,
-    Search,
-    ShieldCheck,
-    UserRound,
-    Users,
-    X
+  ArrowLeft,
+  Car,
+  CheckCheck,
+  RefreshCcw,
+  Search,
+  ShieldCheck,
+  UserRound,
+  Users,
+  X
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -357,7 +357,7 @@ function ChatListItem({ item, last }: { item: ChatItem; last?: boolean }) {
       onPress={() =>
         router.push({
           pathname: "/chat/[roomId]",
-          params: { roomId: item.roomId },
+          params: { roomId: item.roomId, title:item.name || "User" },
         })
       }
       style={{ borderBottomColor: last ? "transparent" : colors.border }}

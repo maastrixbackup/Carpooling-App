@@ -278,6 +278,7 @@ export default function ProfileScreen() {
               icon={<HelpCircle size={20} color={colors.primary} />}
               title="Help & Support"
               subtitle="Get help with rides and bookings"
+              onPress={() => router.push("/help-support" as any)}
               last
             />
           </Section>
@@ -297,7 +298,38 @@ export default function ProfileScreen() {
               {isLoggingOut ? "Logging out..." : "Logout"}
             </Text>
           </TouchableOpacity>
+
+          <View
+            style={{
+              borderTopColor: colors.border,
+              borderTopWidth: 1,
+            }}
+            className="mt-8 pt-5 items-center"
+          >
+            <Text
+              style={{ color: colors.muted }}
+              className="text-xs"
+            >
+              CarPooling v1.0.0
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              Effective Date: 22 June 2026
+            </Text>
+
+            <Text
+              style={{ color: colors.muted }}
+              className="mt-1 text-[11px]"
+            >
+              © 2026 CarPooling. All rights reserved.
+            </Text>
+          </View>
         </ScrollView>
+
+
 
         <ProfileModal
           visible={profileModalVisible}
