@@ -14,7 +14,7 @@ import "../global.css";
 
 function AppContent() {
   const { isDark, colors } = useAppTheme();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   useNotificationListeners();
 
@@ -24,6 +24,10 @@ function AppContent() {
       useDemoToken: false,
     });
   }, [isAuthenticated, user?.id]);
+
+  if (isLoading) {
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -171,6 +175,10 @@ function AppContent() {
             contentStyle: { backgroundColor: colors.bg },
           }}
         />
+
+        <Stack.Screen name="about" options={{ animation: "slide_from_right" }} />
+        <Stack.Screen name="help-support" options={{ animation: "slide_from_right" }} />
+
       </Stack>
 
       <ExpoStatusBar style={isDark ? "light" : "dark"} />

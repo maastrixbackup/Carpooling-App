@@ -163,7 +163,7 @@ function mapApiRideToCard(ride: any) {
 
 export default function HomeScreen() {
   const { colors } = useAppTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const dates = useMemo(() => getNextDates(), []);
   const heroListRef = useRef<FlatList<(typeof heroSlides)[number]>>(null);
 
@@ -319,7 +319,7 @@ export default function HomeScreen() {
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text style={{ color: colors.muted }} className="text-sm font-medium">
-                Good morning 👋 {homeData?.user?.name || ""}
+                Hello, {homeData?.user?.name || user?.full_name ||""}
               </Text>
 
               <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">

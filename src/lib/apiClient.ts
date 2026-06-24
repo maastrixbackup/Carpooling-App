@@ -130,9 +130,10 @@ export async function apiClient(
     options.body !== undefined && options.body !== null && options.body !== "";
 
   const headers = buildHeaders(options, token);
+  const { isFormData, _retry, auth, ...cleanOptions } = options;
 
   const fetchOptions: RequestInit = {
-    ...options,
+    ...cleanOptions,
     headers,
   };
 

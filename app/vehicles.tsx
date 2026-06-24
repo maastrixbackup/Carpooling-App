@@ -31,7 +31,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 type Vehicle = {
@@ -64,6 +64,9 @@ export default function VehiclesScreen() {
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [color, setColor] = useState("");
   const [seats, setSeats] = useState("4");
+
+  const insets = useSafeAreaInsets();
+  const bottomActionHeight = 96 + insets.bottom;
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["my-vehicles"],
@@ -213,7 +216,7 @@ export default function VehiclesScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
         >
           <ScrollView
@@ -225,7 +228,7 @@ export default function VehiclesScreen() {
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingTop: Platform.OS === "android" ? 16 : 12,
-              paddingBottom: 150,
+              paddingBottom: bottomActionHeight + 32,
             }}
           >
             <Header />
@@ -374,6 +377,7 @@ export default function VehiclesScreen() {
           <BottomAction
             canSubmit={canSubmit}
             loading={createMutation.isPending}
+            bottomInset={insets.bottom}
             onPress={handleAddVehicle}
           />
         </KeyboardAvoidingView>
@@ -608,18 +612,24 @@ function AppInput({
 function BottomAction({
   canSubmit,
   loading,
+  bottomInset,
   onPress,
 }: {
   canSubmit: boolean;
   loading: boolean;
+  bottomInset: number;
   onPress: () => void;
 }) {
   const { colors } = useAppTheme();
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderTopColor: colors.border }}
-      className="absolute bottom-0 left-0 right-0 border-t px-5 pb-8 pt-4"
+      style={{
+        backgroundColor: colors.card,
+        borderTopColor: colors.border,
+        paddingBottom: Math.max(bottomInset, 16),
+      }}
+      className="absolute bottom-0 left-0 right-0 border-t px-5 pt-4"
     >
       <TouchableOpacity
         activeOpacity={0.85}

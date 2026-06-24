@@ -1,35 +1,37 @@
+import { TAB_BAR_BASE_HEIGHT } from "@/constants/layout";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { Tabs } from "expo-router";
 import { Car, House, PlusCircle, Ticket, User } from "lucide-react-native";
+import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
+
+  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-
-        // Avoid flicker
         animation: "none",
         lazy: true,
-
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.muted,
-        sceneStyle: {
-          backgroundColor: colors.bg,
-        },
+        sceneStyle: { backgroundColor: colors.bg },
         tabBarStyle: {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
-          height: 70,
+          height: tabBarHeight,
           paddingTop: 8,
-          paddingBottom: 10,
-          position: "absolute",
+          paddingBottom: Math.max(insets.bottom, 10),
+          elevation: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: "700",
+          marginTop: Platform.OS === "android" ? 0 : 2,
         },
       }}
     >

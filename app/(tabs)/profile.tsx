@@ -1,11 +1,16 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
 import { useAuth } from "@/context/AuthContext";
-import { getMeApi } from "@/services/user.service";
+import { getMeApi, updateProfileApi } from "@/services/user.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BlurView } from "expo-blur";
+import { File } from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import {
   Bell,
+  Camera,
   Car,
   ChevronRight,
   CreditCard,
@@ -17,11 +22,13 @@ import {
   ShieldCheck,
   Star,
   Trophy,
-  X
+  X,
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   RefreshControl,
@@ -29,15 +36,20 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 export default function ProfileScreen() {
   const { colors } = useAppTheme();
   const { logout, isAuthenticated } = useAuth();
   const confirm = useConfirm();
+  const queryClient = useQueryClient();
 
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -48,11 +60,31 @@ export default function ProfileScreen() {
     enabled: isAuthenticated,
   });
 
+  const updateProfileMutation = useMutation({
+    mutationFn: updateProfileApi,
+    onSuccess: async () => {
+      toast.success("Profile updated successfully.");
+      setProfileModalVisible(false);
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Unable to update profile.");
+    },
+  });
+
   const user = data?.data?.user;
 
   const displayName = user?.full_name || user?.name || "User";
   const email = user?.email || "";
   const phone = user?.phone || "";
+
+  // Compute a cache-busting URI based on the user's updated_at timestamp
+  const profilePhoto = useMemo(() => {
+    const rawPhoto = user?.profile_picture || user?.profilePicture;
+    if (!rawPhoto) return null;
+    const cacheBuster = user?.updated_at ? `?t=${new Date(user.updated_at).getTime()}` : '';
+    return `${rawPhoto}${cacheBuster}`;
+  }, [user?.profile_picture, user?.profilePicture, user?.updated_at]);
 
   const verification = useMemo(() => getVerificationMeta(user), [user]);
 
@@ -65,7 +97,8 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     const ok = await confirm({
       title: "Logout?",
-      message: "You will need to login again to access your rides and bookings.",
+      message:
+        "You will need to login again to access your rides and bookings.",
       confirmText: "Logout",
       cancelText: "Stay",
       danger: true,
@@ -101,10 +134,16 @@ export default function ProfileScreen() {
           }}
         >
           <View>
-            <Text style={{ color: colors.muted }} className="text-sm font-semibold">
+            <Text
+              style={{ color: colors.muted }}
+              className="text-sm font-semibold"
+            >
               Account
             </Text>
-            <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
+            <Text
+              style={{ color: colors.text }}
+              className="mt-1 text-3xl font-extrabold"
+            >
               Profile
             </Text>
           </View>
@@ -120,7 +159,10 @@ export default function ProfileScreen() {
             {isLoading ? (
               <View className="items-center py-6">
                 <ActivityIndicator color={colors.primary} />
-                <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-3 text-sm font-bold"
+                >
                   Loading profile...
                 </Text>
               </View>
@@ -128,11 +170,19 @@ export default function ProfileScreen() {
               <View className="flex-row items-center gap-4">
                 <View
                   style={{ backgroundColor: colors.primary }}
-                  className="h-20 w-20 items-center justify-center rounded-full"
+                  className="h-20 w-20 overflow-hidden items-center justify-center rounded-full"
                 >
-                  <Text className="text-3xl font-extrabold text-white">
-                    {getInitial(displayName)}
-                  </Text>
+                  {profilePhoto ? (
+                    <Image
+                      source={{ uri: profilePhoto }}
+                      style={{ width: "100%", height: "100%" }}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text className="text-3xl font-extrabold text-white">
+                      {getInitial(displayName)}
+                    </Text>
+                  )}
                 </View>
 
                 <View className="flex-1">
@@ -155,21 +205,27 @@ export default function ProfileScreen() {
                   <View className="mt-3 flex-row flex-wrap items-center gap-2">
                     <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1">
                       <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                      <Text style={{ color: colors.text }} className="text-xs font-bold">
-                        {user?.rating ? Number(user.rating).toFixed(1) : "No rating"}
+                      <Text
+                        style={{ color: colors.text }}
+                        className="text-xs font-bold"
+                      >
+                        {user?.rating
+                          ? Number(user.rating).toFixed(1)
+                          : "No rating"}
                       </Text>
                     </View>
 
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={() => router.push("/verification" as any)}
-                      style={{
-                        backgroundColor: verification.bg,
-                      }}
+                      style={{ backgroundColor: verification.bg }}
                       className="flex-row items-center gap-1 rounded-full px-3 py-1"
                     >
                       <ShieldCheck size={12} color={verification.color} />
-                      <Text style={{ color: verification.color }} className="text-xs font-bold">
+                      <Text
+                        style={{ color: verification.color }}
+                        className="text-xs font-bold"
+                      >
                         {verification.label}
                       </Text>
                     </TouchableOpacity>
@@ -199,16 +255,20 @@ export default function ProfileScreen() {
             >
               <View className="flex-row items-center gap-3">
                 <ShieldCheck size={22} color={colors.primary} />
-
                 <View className="flex-1">
-                  <Text style={{ color: colors.text }} className="font-extrabold">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="font-extrabold"
+                  >
                     Complete verification
                   </Text>
-                  <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs"
+                  >
                     Required before redeeming rewards and earnings.
                   </Text>
                 </View>
-
                 <ChevronRight size={18} color={colors.muted} />
               </View>
             </TouchableOpacity>
@@ -230,7 +290,6 @@ export default function ProfileScreen() {
               title="Messages"
               subtitle="Chat with drivers and passengers"
               onPress={() => router.push("/messages" as any)}
-              last
             />
 
             <MenuItem
@@ -298,45 +357,394 @@ export default function ProfileScreen() {
               {isLoggingOut ? "Logging out..." : "Logout"}
             </Text>
           </TouchableOpacity>
-
-          <View
-            style={{
-              borderTopColor: colors.border,
-              borderTopWidth: 1,
-            }}
-            className="mt-8 pt-5 items-center"
-          >
-            <Text
-              style={{ color: colors.muted }}
-              className="text-xs"
-            >
-              CarPooling v1.0.0
-            </Text>
-
-            <Text
-              style={{ color: colors.muted }}
-              className="mt-1 text-[11px]"
-            >
-              Effective Date: 22 June 2026
-            </Text>
-
-            <Text
-              style={{ color: colors.muted }}
-              className="mt-1 text-[11px]"
-            >
-              © 2026 CarPooling. All rights reserved.
-            </Text>
-          </View>
         </ScrollView>
-
-
 
         <ProfileModal
           visible={profileModalVisible}
           onClose={() => setProfileModalVisible(false)}
           user={user}
+          loading={updateProfileMutation.isPending}
+          onSubmit={(formData) => updateProfileMutation.mutate(formData)}
         />
       </SafeAreaView>
+    </View>
+  );
+}
+
+function ProfileModal({
+  visible,
+  onClose,
+  user,
+  loading,
+  onSubmit,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  user: any;
+  loading: boolean;
+  onSubmit: (formData: FormData) => void;
+}) {
+  const { colors, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
+
+  const originalName = user?.full_name || user?.name || "";
+  const originalPhone = user?.phone || "";
+  const originalEmail = user?.email || "";
+  const existingPhoto = user?.profile_picture || user?.profilePicture || null;
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [profilePhoto, setProfilePhoto] =
+    useState<ImagePicker.ImagePickerAsset | null>(null);
+
+  const modalWidth = Math.min(width - 32, 520);
+  const modalMaxHeight = Math.min(height * 0.86, 720);
+
+  const hasChanges =
+    name.trim() !== originalName ||
+    phone.trim() !== originalPhone ||
+    !!profilePhoto;
+
+  useEffect(() => {
+    if (visible) {
+      setName(originalName);
+      setPhone(originalPhone);
+      setProfilePhoto(null);
+    }
+  }, [visible, originalName, originalPhone]);
+
+  const pickProfilePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        toast.error("Please allow photo access.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+        allowsEditing: false,
+      });
+
+      if (result.canceled) return;
+
+      const originalAsset = result.assets[0];
+
+      const sideLength = Math.min(originalAsset.width, originalAsset.height);
+      const originX = Math.max(0, (originalAsset.width - sideLength) / 2);
+      const originY = Math.max(0, (originalAsset.height - sideLength) / 2);
+
+      const context = ImageManipulator.ImageManipulator.manipulate(
+        originalAsset.uri,
+      );
+
+      context.crop({
+        originX,
+        originY,
+        width: sideLength,
+        height: sideLength,
+      });
+
+      context.resize({
+        width: 500,
+        height: 500,
+      });
+
+      const image = await context.renderAsync();
+
+      const processedImage = await image.saveAsync({
+        compress: 0.75,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+
+      setProfilePhoto({
+        uri: processedImage.uri,
+        width: processedImage.width,
+        height: processedImage.height,
+        fileName: "profile-photo.jpg",
+        mimeType: "image/jpeg",
+      } as ImagePicker.ImagePickerAsset);
+    } catch (error) {
+      console.error("PROFILE IMAGE PROCESS ERROR:", error);
+      toast.error("Failed to process the selected image.");
+    }
+  };
+
+  const handleClose = () => {
+    setName(originalName);
+    setPhone(originalPhone);
+    setProfilePhoto(null);
+    onClose();
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error("Full name is required.");
+      return;
+    }
+
+    if (!phone.trim() || phone.replace(/\D/g, "").length < 10) {
+      toast.error("Enter a valid phone number.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("full_name", name.trim());
+    formData.append("phone", phone.trim());
+
+    if (profilePhoto?.uri) {
+      try {
+        // Build a real Blob-backed File from the manipulated image URI.
+        // This is what satisfies the new FormData validator in SDK 56 —
+        // the old { uri, name, type } object shape is no longer accepted.
+        const fileName = profilePhoto.fileName || `profile-${Date.now()}.jpg`;
+        const file = new File(profilePhoto.uri);
+
+        formData.append("profile_picture", file, fileName);
+      } catch (error) {
+        console.error("Error attaching profile photo: ", error);
+        toast.error("Failed to attach the selected photo.");
+        return;
+      }
+    }
+
+    onSubmit(formData);
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <BlurView
+        intensity={Platform.OS === "ios" ? 35 : 18}
+        tint={isDark ? "dark" : "light"}
+        style={{ flex: 1 }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View className="flex-1 items-center justify-center bg-black/45 px-4">
+            <View
+              style={{
+                width: modalWidth,
+                maxHeight: modalMaxHeight,
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                paddingBottom: Math.max(insets.bottom, 18),
+              }}
+              className="overflow-hidden rounded-[30px] border"
+            >
+              <View
+                style={{ borderBottomColor: colors.border }}
+                className="flex-row items-center justify-between border-b px-5 py-5"
+              >
+                <View className="flex-1 pr-3">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-xl font-extrabold"
+                  >
+                    Edit Profile
+                  </Text>
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs"
+                  >
+                    Update your name, phone number, and profile photo
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClose}
+                  disabled={loading}
+                  style={{ backgroundColor: colors.input }}
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                >
+                  <X size={18} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  paddingHorizontal: 20,
+                  paddingTop: 24,
+                  paddingBottom: 20,
+                }}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={pickProfilePhoto}
+                  disabled={loading}
+                  className="items-center"
+                >
+                  <View
+                    style={{ backgroundColor: colors.primary }}
+                    className="h-24 w-24 overflow-hidden items-center justify-center rounded-full"
+                  >
+                    {getImageUri(profilePhoto) || getImageUri(existingPhoto) ? (
+                      <Image
+                        source={{
+                          uri: getImageUri(profilePhoto) || getImageUri(existingPhoto),
+                        }}
+                        style={{ width: "100%", height: "100%" }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text className="text-4xl font-extrabold text-white">
+                        {getInitial(name)}
+                      </Text>
+                    )}
+                  </View>
+
+                  <View
+                    style={{ backgroundColor: colors.primarySoft }}
+                    className="-mt-5 flex-row items-center gap-1 rounded-full px-3 py-1"
+                  >
+                    <Camera size={12} color={colors.primary} />
+                    <Text
+                      style={{ color: colors.primary }}
+                      className="text-xs font-extrabold"
+                    >
+                      Change Photo
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View className="mt-7">
+                  <ProfileInput
+                    label="Full Name"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Enter full name"
+                    editable={!loading}
+                  />
+
+                  <ProfileInput
+                    label="Phone Number"
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="Enter phone number"
+                    keyboardType="phone-pad"
+                    editable={!loading}
+                  />
+
+                  <ProfileInput
+                    label="Email Address"
+                    value={originalEmail}
+                    onChangeText={() => { }}
+                    placeholder="Email address"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={false}
+                    last
+                  />
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={!hasChanges || loading}
+                  onPress={() => handleSave()}
+                  style={{
+                    backgroundColor: hasChanges ? colors.primary : colors.input,
+                    opacity: hasChanges && !loading ? 1 : 0.65,
+                  }}
+                  className="mt-7 rounded-2xl py-4"
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text
+                      style={{ color: hasChanges ? "#FFFFFF" : colors.muted }}
+                      className="text-center text-base font-extrabold"
+                    >
+                      Save Changes
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClose}
+                  disabled={loading}
+                  style={{ backgroundColor: colors.input }}
+                  className="mt-3 rounded-2xl py-4"
+                >
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-center text-base font-extrabold"
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </BlurView>
+    </Modal>
+  );
+}
+
+function ProfileInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  autoCapitalize = "words",
+  editable = true,
+  last,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  keyboardType?: "default" | "email-address" | "phone-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  editable?: boolean;
+  last?: boolean;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View className={last ? "" : "mb-4"}>
+      <Text
+        style={{ color: colors.muted }}
+        className="mb-2 text-xs font-bold uppercase"
+      >
+        {label}
+      </Text>
+
+      <View
+        style={{
+          backgroundColor: colors.input,
+          borderColor: colors.border,
+          opacity: editable ? 1 : 0.75,
+        }}
+        className="rounded-2xl border px-4 py-3"
+      >
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
+          editable={editable}
+          style={{ color: editable ? colors.text : colors.muted }}
+          className="text-base font-semibold"
+        />
+      </View>
     </View>
   );
 }
@@ -347,157 +755,21 @@ function getVerificationMeta(user: any) {
     user?.verification_status === "approved" ||
     user?.onboarding_completed === true;
 
-  const isRejected = user?.verification_status === "rejected";
-  const canRedeem = user?.can_redeem === true;
-
   if (isApproved) {
     return {
       completed: true,
-      canRedeem,
       label: "Verified",
       bg: "rgba(34,197,94,0.14)",
       color: "#22C55E",
     };
   }
 
-  if (isRejected) {
-    return {
-      completed: false,
-      canRedeem: false,
-      label: "Rejected",
-      bg: "rgba(239,68,68,0.14)",
-      color: "#EF4444",
-    };
-  }
-
   return {
     completed: false,
-    canRedeem: false,
     label: "Verify Now",
     bg: "rgba(239,68,68,0.14)",
     color: "#EF4444",
   };
-}
-
-function ProfileModal({
-  visible,
-  onClose,
-  user,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  user: any;
-}) {
-  const { colors } = useAppTheme();
-
-  const displayName = user?.full_name || user?.name || "";
-  const [name, setName] = useState(displayName);
-  const [phone, setPhone] = useState(user?.phone || "");
-  const [email, setEmail] = useState(user?.email || "");
-
-  useEffect(() => {
-    if (visible) {
-      setName(user?.full_name || user?.name || "");
-      setPhone(user?.phone || "");
-      setEmail(user?.email || "");
-    }
-  }, [visible, user]);
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/60">
-        <View
-          style={{ backgroundColor: colors.card, borderColor: colors.border }}
-          className="max-h-[88%] rounded-t-[34px] border px-5 pb-8 pt-5"
-        >
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                Profile Details
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-                Your saved account information
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ backgroundColor: colors.input }}
-              className="h-10 w-10 items-center justify-center rounded-full"
-            >
-              <X size={18} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingTop: 24 }}
-          >
-            <View className="items-center">
-              <View
-                style={{ backgroundColor: colors.primary }}
-                className="h-24 w-24 items-center justify-center rounded-full"
-              >
-                <Text className="text-4xl font-extrabold text-white">
-                  {getInitial(name)}
-                </Text>
-              </View>
-            </View>
-
-            <View className="mt-7">
-              <ProfileInput label="Full Name" value={name} editable={false} />
-              <ProfileInput label="Phone Number" value={phone} editable={false} />
-              <ProfileInput label="Email Address" value={email} editable={false} last />
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onClose}
-              style={{ backgroundColor: colors.primary }}
-              className="mt-7 rounded-2xl py-4"
-            >
-              <Text className="text-center text-base font-extrabold text-white">
-                Close
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function ProfileInput({
-  label,
-  value,
-  editable = true,
-  last,
-}: {
-  label: string;
-  value: string;
-  editable?: boolean;
-  last?: boolean;
-}) {
-  const { colors } = useAppTheme();
-
-  return (
-    <View className={last ? "" : "mb-4"}>
-      <Text style={{ color: colors.muted }} className="mb-2 text-xs font-bold uppercase">
-        {label}
-      </Text>
-
-      <View style={{ backgroundColor: colors.input }} className="rounded-2xl px-4 py-3">
-        <TextInput
-          value={value || "Not available"}
-          editable={editable}
-          placeholderTextColor={colors.muted}
-          style={{ color: colors.text }}
-          className="text-base font-semibold"
-        />
-      </View>
-    </View>
-  );
 }
 
 function Section({
@@ -536,10 +808,16 @@ function StatCard({ label, value }: { label: string; value: string }) {
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
       className="flex-1 rounded-[24px] border p-4"
     >
-      <Text style={{ color: colors.text }} className="text-center text-xl font-extrabold">
+      <Text
+        style={{ color: colors.text }}
+        className="text-center text-xl font-extrabold"
+      >
         {value}
       </Text>
-      <Text style={{ color: colors.muted }} className="mt-1 text-center text-xs">
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-center text-xs"
+      >
         {label}
       </Text>
     </View>
@@ -592,4 +870,12 @@ function MenuItem({
 
 function getInitial(name?: string) {
   return name?.trim()?.charAt(0)?.toUpperCase() || "U";
+}
+
+
+function getImageUri(value: any) {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value?.uri === "string") return value.uri;
+  return null;
 }

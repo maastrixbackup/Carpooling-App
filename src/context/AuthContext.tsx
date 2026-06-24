@@ -116,14 +116,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       queryClient.cancelQueries();
-      queryClient.clear();
-      setUser(null);
+
       await logoutApi().catch(() => { });
       await clearAuthTokens();
+
+      queryClient.clear();
+      setUser(null);
     } catch {
       await clearAuthTokens();
-      setUser(null);
       queryClient.clear();
+      setUser(null);
     }
   };
 
@@ -131,6 +133,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const response = await meApi();
     setUser(response.data.user);
   };
+
+  if (isLoading) {
+    return null;
+  }
 
   return (
     <AuthContext.Provider
