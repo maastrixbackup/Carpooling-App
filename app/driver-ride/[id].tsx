@@ -43,7 +43,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 type ActiveTab = "overview" | "bookings";
@@ -98,6 +98,9 @@ export default function DriverRideDetailsScreen() {
 
     const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
     const [editVisible, setEditVisible] = useState(false);
+
+    const insets = useSafeAreaInsets();
+    const ACTION_BAR_HEIGHT = 96 + Math.max(insets.bottom, 16);
 
     const { data, isLoading, isError, isFetching, refetch } = useQuery({
         queryKey: ["driver-ride-details", id],
@@ -345,6 +348,13 @@ export default function DriverRideDetailsScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: colors.bg }}>
             <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+                <DriverRideHeader
+                    title="Ride Details"
+                    subtitle="Driver view"
+                    statusLabel={statusTheme.label}
+                    statusBg={statusTheme.bg}
+                    statusColor={statusTheme.text}
+                />
                 <ScrollView
                     showsVerticalScrollIndicator={false}
                     refreshControl={
@@ -352,32 +362,10 @@ export default function DriverRideDetailsScreen() {
                     }
                     contentContainerStyle={{
                         paddingHorizontal: 20,
-                        paddingTop: Platform.OS === "android" ? 16 : 12,
-                        paddingBottom: canCancel ? 165 : 120,
+                        paddingTop: 16,
+                        paddingBottom: ACTION_BAR_HEIGHT + 28,
                     }}
                 >
-                    <View className="flex-row items-center justify-between">
-                        <TouchableOpacity
-                            activeOpacity={0.85}
-                            onPress={() => router.back()}
-                            style={{
-                                backgroundColor: colors.card,
-                                borderColor: colors.border,
-                            }}
-                            className="h-11 w-11 items-center justify-center rounded-full border"
-                        >
-                            <ArrowLeft size={22} color={colors.text} />
-                        </TouchableOpacity>
-
-                        <View
-                            style={{ backgroundColor: statusTheme.bg }}
-                            className="rounded-full px-4 py-2"
-                        >
-                            <Text style={{ color: statusTheme.text }} className="text-xs font-extrabold">
-                                {statusTheme.label}
-                            </Text>
-                        </View>
-                    </View>
 
                     <View
                         style={{
@@ -461,9 +449,10 @@ export default function DriverRideDetailsScreen() {
                     style={{
                         backgroundColor: colors.card,
                         borderTopColor: colors.border,
+                        paddingBottom: Math.max(insets.bottom, 16),
                         ...cardShadow,
                     }}
-                    className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t px-5 pb-8 pt-4"
+                    className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t px-5 pt-4"
                 >
                     <View className="flex-row gap-3">
                         {canEdit && (
@@ -1398,6 +1387,77 @@ function PaymentReceivedCard({
                     </Text>
                     <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
                         {totalBookings}
+                    </Text>
+                </View>
+            </View>
+        </View>
+    );
+}
+
+function DriverRideHeader({
+    title,
+    subtitle,
+    statusLabel,
+    statusBg,
+    statusColor,
+}: {
+    title: string;
+    subtitle: string;
+    statusLabel: string;
+    statusBg: string;
+    statusColor: string;
+}) {
+    const { colors } = useAppTheme();
+
+    return (
+        <View
+            style={{
+                backgroundColor: colors.bg,
+                borderBottomColor: colors.border,
+            }}
+            className="border-b px-5 pb-4 pt-3"
+        >
+            <View className="flex-row items-center gap-3">
+                <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => router.back()}
+                    style={{
+                        backgroundColor: colors.card,
+                        borderColor: colors.border,
+                    }}
+                    className="h-11 w-11 items-center justify-center rounded-full border"
+                >
+                    <ArrowLeft size={22} color={colors.text} />
+                </TouchableOpacity>
+
+                <View className="flex-1 items-center">
+                    <Text
+                        style={{ color: colors.text }}
+                        className="text-lg font-extrabold"
+                        numberOfLines={1}
+                    >
+                        {title}
+                    </Text>
+
+                    <Text
+                        style={{ color: colors.muted }}
+                        className="mt-0.5 text-xs font-semibold"
+                        numberOfLines={1}
+                    >
+                        {subtitle}
+                    </Text>
+                </View>
+
+                <View
+                    style={{ backgroundColor: statusBg }}
+                    className="min-w-[86px] items-center rounded-full px-3 py-2"
+                >
+                    <Text
+                        style={{ color: statusColor }}
+                        className="text-[11px] font-extrabold"
+                        numberOfLines={1}
+                    >
+                        {statusLabel}
                     </Text>
                 </View>
             </View>

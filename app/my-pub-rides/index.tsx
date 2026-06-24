@@ -15,12 +15,11 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -47,14 +46,13 @@ const cardShadow = {
 
 export default function MyPublishedRidesScreen() {
   const { colors } = useAppTheme();
-  const [now, setNow] = useState(new Date());
   const { isAuthenticated } = useAuth();
-
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(new Date());
-    }, 1000);
+    }, 60 * 1000);
 
     return () => clearInterval(timer);
   }, []);
@@ -66,15 +64,25 @@ export default function MyPublishedRidesScreen() {
     retry: false,
   });
 
-  const rides: PublishedRide[] = data?.data?.rides?.map(mapRideToUi) || [];
+  const rides: PublishedRide[] = useMemo(() => {
+    return data?.data?.rides?.map(mapRideToUi) || [];
+  }, [data]);
 
   const completedCount = useMemo(() => {
     return rides.filter((ride) => ride.status === "completed").length;
   }, [rides]);
 
+  const activeCount = useMemo(() => {
+    return rides.filter((ride) =>
+      ["scheduled", "ongoing"].includes(String(ride.status).toLowerCase()),
+    ).length;
+  }, [rides]);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <FixedHeader />
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -82,55 +90,17 @@ export default function MyPublishedRidesScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
+            paddingTop: 18,
             paddingBottom: 120,
           }}
         >
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.back()}
-              style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-              }}
-              className="h-11 w-11 items-center justify-center rounded-full border"
-            >
-              <ArrowLeft size={22} color={colors.text} />
-            </TouchableOpacity>
-
-            <Text
-              style={{ color: colors.text }}
-              className="mt-1 text-xl font-extrabold"
-            >
-              My Published Rides
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.push("/(tabs)/publish")}
-              style={{ backgroundColor: colors.primary }}
-              className="h-11 w-11 items-center justify-center rounded-full"
-            >
-              <Plus size={21} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <View className="mt-6">
-            <Text
-              style={{ color: colors.text }}
-              className="text-md font-semibold"
-            >
+          <View>
+            <Text style={{ color: colors.text }} className="text-2xl font-extrabold">
               Driver dashboard
             </Text>
 
-
-
-            <Text
-              style={{ color: colors.muted }}
-              className="mt-2 text-sm leading-5"
-            >
-              Manage rides, passenger bookings, status, and trip timing.
+            <Text style={{ color: colors.muted }} className="mt-2 text-sm leading-5">
+              Track your published rides, manage passenger bookings, and update trip status.
             </Text>
           </View>
 
@@ -142,6 +112,12 @@ export default function MyPublishedRidesScreen() {
             />
 
             <SummaryCard
+              icon={<Clock size={17} color="#F59E0B" />}
+              label="Active"
+              value={`${activeCount}`}
+            />
+
+            <SummaryCard
               icon={<CheckCircle2 size={17} color={colors.success} />}
               label="Completed"
               value={`${completedCount}`}
@@ -149,15 +125,17 @@ export default function MyPublishedRidesScreen() {
           </View>
 
           <View className="mt-8 flex-row items-center justify-between">
-            <Text
-              style={{ color: colors.text }}
-              className="text-xl font-extrabold"
-            >
-              Rides
-            </Text>
+            <View>
+              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
+                Published rides
+              </Text>
+              <Text style={{ color: colors.muted }} className="mt-1 text-xs font-semibold">
+                Open a ride to manage bookings and status
+              </Text>
+            </View>
 
             <Text style={{ color: colors.muted }} className="text-sm font-bold">
-              {rides.length} ride{rides.length === 1 ? "" : "s"}
+              {rides.length} total
             </Text>
           </View>
 
@@ -178,10 +156,66 @@ export default function MyPublishedRidesScreen() {
   );
 }
 
+function FixedHeader() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
+
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            My Published Rides
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Driver ride management
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.push("/(tabs)/publish")}
+          style={{ backgroundColor: colors.primary }}
+          className="h-11 w-11 items-center justify-center rounded-full"
+        >
+          <Plus size={21} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 function RideCard({ ride, now }: { ride: PublishedRide; now: Date }) {
   const { colors } = useAppTheme();
   const statusTheme = getStatusTheme(ride.status, colors);
   const timeLeft = getRideTimeLeft(ride.date, ride.time, now);
+  const isCompleted = String(ride.status).toLowerCase() === "completed";
 
   return (
     <TouchableOpacity
@@ -209,32 +243,16 @@ function RideCard({ ride, now }: { ride: PublishedRide; now: Date }) {
           <Car size={22} color={colors.primary} />
         </View>
 
-        <View className="items-end gap-2 flex-row">
-          <View
-            style={{ backgroundColor: statusTheme.bg }}
-            className="rounded-full px-3 py-1.5"
-          >
-            <Text
-              style={{ color: statusTheme.text }}
-              className="text-xs font-bold"
-            >
-              {statusTheme.label}
-            </Text>
-          </View>
+        <View className="flex-1 flex-row flex-wrap justify-end gap-2">
+          <StatusChip label={statusTheme.label} bg={statusTheme.bg} text={statusTheme.text} />
 
-          {ride.status.toLowerCase() !== "completed" && (
-            <View
-              style={{ backgroundColor: timeLeft.bg }}
-              className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
-            >
-              <Clock size={13} color={timeLeft.text} />
-              <Text
-                style={{ color: timeLeft.text }}
-                className="text-xs font-extrabold"
-              >
-                {timeLeft.label}
-              </Text>
-            </View>
+          {!isCompleted && (
+            <StatusChip
+              icon={<Clock size={13} color={timeLeft.text} />}
+              label={timeLeft.label}
+              bg={timeLeft.bg}
+              text={timeLeft.text}
+            />
           )}
         </View>
       </View>
@@ -280,10 +298,7 @@ function RideCard({ ride, now }: { ride: PublishedRide; now: Date }) {
           text={`${formatDate(ride.date)} • ${formatTime(ride.time)}`}
         />
 
-        <InfoLine
-          icon={<Car size={15} color={colors.primary} />}
-          text={ride.car}
-        />
+        <InfoLine icon={<Car size={15} color={colors.primary} />} text={ride.car} />
       </View>
 
       <View
@@ -292,48 +307,56 @@ function RideCard({ ride, now }: { ride: PublishedRide; now: Date }) {
       >
         <View>
           <Text style={{ color: colors.muted }} className="text-xs font-bold">
-            Price / KM
+            Price per km
           </Text>
-          <Text
-            style={{ color: colors.primary }}
-            className="mt-1 text-xl font-extrabold"
-          >
+          <Text style={{ color: colors.primary }} className="mt-1 text-xl font-extrabold">
             ₹{ride.price}
           </Text>
         </View>
 
         <View className="items-end">
           <Text style={{ color: colors.muted }} className="text-xs font-bold">
-            Ride Status
+            Seats available
           </Text>
-          <Text
-            style={{ color: statusTheme.text }}
-            className="mt-1 font-extrabold"
-          >
-            {statusTheme.label}
+          <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
+            {ride.availableSeats}/{ride.totalSeats}
           </Text>
         </View>
       </View>
 
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() =>
-          router.push({
-            pathname: "/driver-ride/[id]" as any,
-            params: { id: ride.id },
-          })
-        }
+      <View
         style={{ backgroundColor: colors.primarySoft }}
         className="mt-5 rounded-2xl py-3"
       >
-        <Text
-          style={{ color: colors.primary }}
-          className="text-center font-extrabold"
-        >
-          View Bookings & Manage
+        <Text style={{ color: colors.primary }} className="text-center font-extrabold">
+          Manage Ride
         </Text>
-      </TouchableOpacity>
+      </View>
     </TouchableOpacity>
+  );
+}
+
+function StatusChip({
+  icon,
+  label,
+  bg,
+  text,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  bg: string;
+  text: string;
+}) {
+  return (
+    <View
+      style={{ backgroundColor: bg }}
+      className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+    >
+      {icon}
+      <Text style={{ color: text }} className="text-xs font-extrabold">
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -357,19 +380,15 @@ function SummaryCard({
       }}
       className="flex-1 rounded-[24px] border p-4"
     >
-      <View className="flex-row items-center gap-2">
+      <View className="items-center">
         {icon}
-        <Text style={{ color: colors.muted }} className="text-xs font-bold">
+        <Text style={{ color: colors.muted }} className="mt-2 text-xs font-bold">
           {label}
         </Text>
+        <Text style={{ color: colors.text }} className="mt-1 text-2xl font-extrabold">
+          {value}
+        </Text>
       </View>
-
-      <Text
-        style={{ color: colors.text }}
-        className="mt-2 text-2xl font-extrabold"
-      >
-        {value}
-      </Text>
     </View>
   );
 }
@@ -405,7 +424,7 @@ function LoadingCard() {
     >
       <ActivityIndicator color={colors.primary} />
       <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
-        Loading published rides...
+        Loading your published rides...
       </Text>
     </View>
   );
@@ -423,20 +442,19 @@ function EmptyState() {
       }}
       className="items-center rounded-[30px] border p-8"
     >
-      <Car size={38} color={colors.muted} />
-
-      <Text
-        style={{ color: colors.text }}
-        className="mt-4 text-lg font-extrabold"
+      <View
+        style={{ backgroundColor: colors.primarySoft }}
+        className="h-16 w-16 items-center justify-center rounded-full"
       >
-        No published rides yet
+        <Car size={34} color={colors.primary} />
+      </View>
+
+      <Text style={{ color: colors.text }} className="mt-4 text-lg font-extrabold">
+        No rides published yet
       </Text>
 
-      <Text
-        style={{ color: colors.muted }}
-        className="mt-2 text-center text-sm"
-      >
-        Publish your first ride and start accepting passenger bookings.
+      <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm leading-5">
+        Publish a ride to start receiving passenger bookings.
       </Text>
 
       <TouchableOpacity
@@ -511,8 +529,11 @@ function formatTime(value?: string) {
 
 function getRideDateTime(dateValue?: string, timeValue?: string) {
   if (!dateValue || !timeValue) return null;
+
   const date = new Date(dateValue);
+
   if (Number.isNaN(date.getTime())) return null;
+
   const [hourRaw, minuteRaw, secondRaw] = timeValue.split(":");
   const hour = Number(hourRaw);
   const minute = Number(minuteRaw || 0);
@@ -550,14 +571,13 @@ function getRideTimeLeft(dateValue: string, timeValue: string, now: Date) {
   const days = Math.floor(totalSeconds / 86400);
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
 
   const label =
     days > 0
       ? `${days}d ${hours}h left`
       : hours > 0
         ? `${hours}h ${minutes}m left`
-        : `${minutes}m ${seconds}s left`;
+        : `${Math.max(minutes, 1)}m left`;
 
   const withinFiveHours = diffMs <= 5 * 60 * 60 * 1000;
 
