@@ -1,0 +1,2 @@
+export const TAB_BAR_BASE_HEIGHT = 62;
+export const PUBLISH_BOTTOM_BAR_HEIGHT = 136;
