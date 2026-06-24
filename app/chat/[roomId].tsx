@@ -25,6 +25,26 @@ import { toast } from "sonner-native";
 
 const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL;
 
+function createTempMessage({
+  roomId,
+  currentUserId,
+  message,
+}: {
+  roomId: string;
+  currentUserId: string;
+  message: string;
+}): ChatMessage {
+  return {
+    id: `temp-${Date.now()}`,
+    room_id: roomId,
+    sender_id: currentUserId,
+    message,
+    message_type: "text",
+    is_read: true,
+    created_at: new Date().toISOString(),
+  };
+}
+
 type ChatMessage = {
   id: string | number;
   room_id: string | number;
@@ -74,7 +94,7 @@ export default function ChatRoomScreen() {
   useEffect(() => {
     if (!roomId || !SOCKET_URL) return;
 
-    markChatReadApi(String(roomId)).catch(() => {});
+    markChatReadApi(String(roomId)).catch(() => { });
 
     const socket = io(SOCKET_URL, {
       transports: ["websocket"],
@@ -96,17 +116,23 @@ export default function ChatRoomScreen() {
 
     socket.on("new_message", (newMessage: ChatMessage) => {
       if (String(newMessage.room_id) !== String(roomId)) return;
-
       setMessages((prev) => {
         const exists = prev.some(
           (item) => String(item.id) === String(newMessage.id),
         );
-
         if (exists) return prev;
-        return [...prev, newMessage];
+        const withoutTemp = prev.filter((item) => {
+          const isTemp = String(item.id).startsWith("temp-");
+          const sameText = item.message === newMessage.message;
+          const sameSender = String(item.sender_id) === String(newMessage.sender_id);
+          return !(isTemp && sameText && sameSender);
+        });
+
+        return [...withoutTemp, newMessage];
       });
 
-      setTimeout(scrollToBottom, 80);
+      markChatReadApi(String(roomId)).catch(() => { });
+      setTimeout(scrollToBottom, 60);
     });
 
     socket.on("connect_error", () => {
@@ -149,15 +175,24 @@ export default function ChatRoomScreen() {
 
   const handleSend = async () => {
     const cleanMessage = text.trim();
-
     if (!cleanMessage || !roomId || sending) return;
+    const tempMessage = createTempMessage({
+      roomId: String(roomId),
+      currentUserId,
+      message: cleanMessage,
+    });
 
     setText("");
-    setSending(true);
+    setMessages((prev) => [...prev, tempMessage]);
+    setTimeout(scrollToBottom, 50);
 
     try {
+      setSending(true);
       await sendChatMessageApi(String(roomId), cleanMessage);
     } catch (error: any) {
+      setMessages((prev) =>
+        prev.filter((item) => String(item.id) !== String(tempMessage.id)),
+      );
       setText(cleanMessage);
       toast.error(error?.message || "Unable to send message.");
     } finally {
@@ -280,7 +315,7 @@ export default function ChatRoomScreen() {
               <TextInput
                 value={text}
                 onChangeText={setText}
-                placeholder="Message"
+                placeholder="Type a message..."
                 placeholderTextColor={colors.muted}
                 multiline
                 maxLength={500}
@@ -301,9 +336,10 @@ export default function ChatRoomScreen() {
               disabled={!text.trim() || sending}
               style={{
                 backgroundColor:
-                  text.trim() && !sending ? colors.primary : colors.border,
+                  text.trim() && !sending ? colors.primary : colors.input,
+                borderColor: text.trim() && !sending ? colors.primary : colors.border,
               }}
-              className="mb-0.5 h-12 w-12 items-center justify-center rounded-full"
+              className="mb-0.5 h-12 w-12 items-center justify-center rounded-full border"
             >
               {sending ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -393,14 +429,14 @@ function EmptyChat() {
       </View>
 
       <Text style={{ color: colors.text }} className="mt-5 text-lg font-extrabold">
-        No messages yet
+        Start the ride chat
       </Text>
 
       <Text
         style={{ color: colors.muted }}
         className="mt-2 text-center text-sm leading-5"
       >
-        Start the conversation about pickup point, timing, or vehicle details.
+        Confirm pickup point, timing, vehicle details, or passenger notes here.
       </Text>
     </View>
   );

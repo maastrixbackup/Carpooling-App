@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getMeApi } from "@/services/user.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
+import { BlurView } from "expo-blur";
 import { router } from "expo-router";
 import {
   Bell,
@@ -22,6 +23,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   RefreshControl,
@@ -29,9 +31,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 export default function ProfileScreen() {
@@ -388,82 +391,205 @@ function ProfileModal({
   onClose: () => void;
   user: any;
 }) {
-  const { colors } = useAppTheme();
+  const { colors, isDark } = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const { height, width } = useWindowDimensions();
 
-  const displayName = user?.full_name || user?.name || "";
-  const [name, setName] = useState(displayName);
-  const [phone, setPhone] = useState(user?.phone || "");
-  const [email, setEmail] = useState(user?.email || "");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+
+  const modalWidth = Math.min(width - 32, 520);
+  const modalMaxHeight = Math.min(height * 0.86, 720);
+
+  const originalName = user?.full_name || user?.name || "";
+  const originalPhone = user?.phone || "";
+  const originalEmail = user?.email || "";
+
+  const hasChanges =
+    name.trim() !== originalName ||
+    phone.trim() !== originalPhone ||
+    email.trim() !== originalEmail;
 
   useEffect(() => {
     if (visible) {
-      setName(user?.full_name || user?.name || "");
-      setPhone(user?.phone || "");
-      setEmail(user?.email || "");
+      setName(originalName);
+      setPhone(originalPhone);
+      setEmail(originalEmail);
     }
-  }, [visible, user]);
+  }, [visible, originalName, originalPhone, originalEmail]);
+
+  const handleClose = () => {
+    setName(originalName);
+    setPhone(originalPhone);
+    setEmail(originalEmail);
+    onClose();
+  };
+
+  const handleSave = () => {
+    // Later integrate update profile API here.
+    // Payload:
+    // { full_name: name.trim(), phone: phone.trim(), email: email.trim() }
+    toast.success("Profile changes are ready to save.");
+    onClose();
+  };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end bg-black/60">
-        <View
-          style={{ backgroundColor: colors.card, borderColor: colors.border }}
-          className="max-h-[88%] rounded-t-[34px] border px-5 pb-8 pt-5"
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <BlurView
+        intensity={Platform.OS === "ios" ? 35 : 18}
+        tint={isDark ? "dark" : "light"}
+        style={{ flex: 1 }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <View className="flex-row items-center justify-between">
-            <View>
-              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                Profile Details
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-                Your saved account information
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ backgroundColor: colors.input }}
-              className="h-10 w-10 items-center justify-center rounded-full"
+          <View className="flex-1 items-center justify-center bg-black/45 px-4">
+            <View
+              style={{
+                width: modalWidth,
+                maxHeight: modalMaxHeight,
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                paddingBottom: Math.max(insets.bottom, 18),
+              }}
+              className="overflow-hidden rounded-[30px] border"
             >
-              <X size={18} color={colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingTop: 24 }}
-          >
-            <View className="items-center">
               <View
-                style={{ backgroundColor: colors.primary }}
-                className="h-24 w-24 items-center justify-center rounded-full"
+                style={{ borderBottomColor: colors.border }}
+                className="flex-row items-center justify-between border-b px-5 py-5"
               >
-                <Text className="text-4xl font-extrabold text-white">
-                  {getInitial(name)}
-                </Text>
+                <View className="flex-1 pr-3">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-xl font-extrabold"
+                  >
+                    Edit Profile
+                  </Text>
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs"
+                  >
+                    Update your personal information
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClose}
+                  style={{ backgroundColor: colors.input }}
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                >
+                  <X size={18} color={colors.text} />
+                </TouchableOpacity>
               </View>
-            </View>
 
-            <View className="mt-7">
-              <ProfileInput label="Full Name" value={name} editable={false} />
-              <ProfileInput label="Phone Number" value={phone} editable={false} />
-              <ProfileInput label="Email Address" value={email} editable={false} last />
-            </View>
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  paddingHorizontal: 20,
+                  paddingTop: 24,
+                  paddingBottom: 20,
+                }}
+              >
+                <View className="items-center">
+                  <View
+                    style={{ backgroundColor: colors.primary }}
+                    className="h-24 w-24 items-center justify-center rounded-full"
+                  >
+                    <Text className="text-4xl font-extrabold text-white">
+                      {getInitial(name)}
+                    </Text>
+                  </View>
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={onClose}
-              style={{ backgroundColor: colors.primary }}
-              className="mt-7 rounded-2xl py-4"
-            >
-              <Text className="text-center text-base font-extrabold text-white">
-                Close
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
+                  <Text
+                    style={{ color: colors.text }}
+                    className="mt-4 text-lg font-extrabold"
+                    numberOfLines={1}
+                  >
+                    {name || "User"}
+                  </Text>
+
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs font-semibold"
+                    numberOfLines={1}
+                  >
+                    {email || phone || "No contact available"}
+                  </Text>
+                </View>
+
+                <View className="mt-7">
+                  <ProfileInput
+                    label="Full Name"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Enter full name"
+                  />
+
+                  <ProfileInput
+                    label="Phone Number"
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="Enter phone number"
+                    keyboardType="phone-pad"
+                  />
+
+                  <ProfileInput
+                    label="Email Address"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Enter email address"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    last
+                  />
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={!hasChanges}
+                  onPress={handleSave}
+                  style={{
+                    backgroundColor: hasChanges ? colors.primary : colors.input,
+                    opacity: hasChanges ? 1 : 0.65,
+                  }}
+                  className="mt-7 rounded-2xl py-4"
+                >
+                  <Text
+                    style={{ color: hasChanges ? "#FFFFFF" : colors.muted }}
+                    className="text-center text-base font-extrabold"
+                  >
+                    Save Changes
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClose}
+                  style={{ backgroundColor: colors.input }}
+                  className="mt-3 rounded-2xl py-4"
+                >
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-center text-base font-extrabold"
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </BlurView>
     </Modal>
   );
 }
@@ -471,27 +597,46 @@ function ProfileModal({
 function ProfileInput({
   label,
   value,
-  editable = true,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  autoCapitalize = "words",
   last,
 }: {
   label: string;
   value: string;
-  editable?: boolean;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  keyboardType?: "default" | "email-address" | "phone-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
   last?: boolean;
 }) {
   const { colors } = useAppTheme();
 
   return (
     <View className={last ? "" : "mb-4"}>
-      <Text style={{ color: colors.muted }} className="mb-2 text-xs font-bold uppercase">
+      <Text
+        style={{ color: colors.muted }}
+        className="mb-2 text-xs font-bold uppercase"
+      >
         {label}
       </Text>
 
-      <View style={{ backgroundColor: colors.input }} className="rounded-2xl px-4 py-3">
+      <View
+        style={{
+          backgroundColor: colors.input,
+          borderColor: colors.border,
+        }}
+        className="rounded-2xl border px-4 py-3"
+      >
         <TextInput
-          value={value || "Not available"}
-          editable={editable}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
           placeholderTextColor={colors.muted}
+          keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={false}
           style={{ color: colors.text }}
           className="text-base font-semibold"
         />
@@ -499,6 +644,7 @@ function ProfileInput({
     </View>
   );
 }
+
 
 function Section({
   title,
