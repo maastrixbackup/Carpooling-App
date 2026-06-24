@@ -4,6 +4,8 @@ import { getMeApi, updateProfileApi } from "@/services/user.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BlurView } from "expo-blur";
+import { File } from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import {
@@ -37,7 +39,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 export default function ProfileScreen() {
@@ -72,7 +77,14 @@ export default function ProfileScreen() {
   const displayName = user?.full_name || user?.name || "User";
   const email = user?.email || "";
   const phone = user?.phone || "";
-  const profilePhoto = user?.profile_picture || user?.profilePicture || null;
+
+  // Compute a cache-busting URI based on the user's updated_at timestamp
+  const profilePhoto = useMemo(() => {
+    const rawPhoto = user?.profile_picture || user?.profilePicture;
+    if (!rawPhoto) return null;
+    const cacheBuster = user?.updated_at ? `?t=${new Date(user.updated_at).getTime()}` : '';
+    return `${rawPhoto}${cacheBuster}`;
+  }, [user?.profile_picture, user?.profilePicture, user?.updated_at]);
 
   const verification = useMemo(() => getVerificationMeta(user), [user]);
 
@@ -85,7 +97,8 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     const ok = await confirm({
       title: "Logout?",
-      message: "You will need to login again to access your rides and bookings.",
+      message:
+        "You will need to login again to access your rides and bookings.",
       confirmText: "Logout",
       cancelText: "Stay",
       danger: true,
@@ -121,10 +134,16 @@ export default function ProfileScreen() {
           }}
         >
           <View>
-            <Text style={{ color: colors.muted }} className="text-sm font-semibold">
+            <Text
+              style={{ color: colors.muted }}
+              className="text-sm font-semibold"
+            >
               Account
             </Text>
-            <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
+            <Text
+              style={{ color: colors.text }}
+              className="mt-1 text-3xl font-extrabold"
+            >
               Profile
             </Text>
           </View>
@@ -140,7 +159,10 @@ export default function ProfileScreen() {
             {isLoading ? (
               <View className="items-center py-6">
                 <ActivityIndicator color={colors.primary} />
-                <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
+                <Text
+                  style={{ color: colors.muted }}
+                  className="mt-3 text-sm font-bold"
+                >
                   Loading profile...
                 </Text>
               </View>
@@ -183,8 +205,13 @@ export default function ProfileScreen() {
                   <View className="mt-3 flex-row flex-wrap items-center gap-2">
                     <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1">
                       <Star size={14} color="#F59E0B" fill="#F59E0B" />
-                      <Text style={{ color: colors.text }} className="text-xs font-bold">
-                        {user?.rating ? Number(user.rating).toFixed(1) : "No rating"}
+                      <Text
+                        style={{ color: colors.text }}
+                        className="text-xs font-bold"
+                      >
+                        {user?.rating
+                          ? Number(user.rating).toFixed(1)
+                          : "No rating"}
                       </Text>
                     </View>
 
@@ -195,7 +222,10 @@ export default function ProfileScreen() {
                       className="flex-row items-center gap-1 rounded-full px-3 py-1"
                     >
                       <ShieldCheck size={12} color={verification.color} />
-                      <Text style={{ color: verification.color }} className="text-xs font-bold">
+                      <Text
+                        style={{ color: verification.color }}
+                        className="text-xs font-bold"
+                      >
                         {verification.label}
                       </Text>
                     </TouchableOpacity>
@@ -226,10 +256,16 @@ export default function ProfileScreen() {
               <View className="flex-row items-center gap-3">
                 <ShieldCheck size={22} color={colors.primary} />
                 <View className="flex-1">
-                  <Text style={{ color: colors.text }} className="font-extrabold">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="font-extrabold"
+                  >
                     Complete verification
                   </Text>
-                  <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs"
+                  >
                     Required before redeeming rewards and earnings.
                   </Text>
                 </View>
@@ -379,23 +415,61 @@ function ProfileModal({
   }, [visible, originalName, originalPhone]);
 
   const pickProfilePhoto = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        toast.error("Please allow photo access.");
+        return;
+      }
 
-    if (!permission.granted) {
-      toast.error("Please allow photo access.");
-      return;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+        allowsEditing: false,
+      });
+
+      if (result.canceled) return;
+
+      const originalAsset = result.assets[0];
+
+      const sideLength = Math.min(originalAsset.width, originalAsset.height);
+      const originX = Math.max(0, (originalAsset.width - sideLength) / 2);
+      const originY = Math.max(0, (originalAsset.height - sideLength) / 2);
+
+      const context = ImageManipulator.ImageManipulator.manipulate(
+        originalAsset.uri,
+      );
+
+      context.crop({
+        originX,
+        originY,
+        width: sideLength,
+        height: sideLength,
+      });
+
+      context.resize({
+        width: 500,
+        height: 500,
+      });
+
+      const image = await context.renderAsync();
+
+      const processedImage = await image.saveAsync({
+        compress: 0.75,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+
+      setProfilePhoto({
+        uri: processedImage.uri,
+        width: processedImage.width,
+        height: processedImage.height,
+        fileName: "profile-photo.jpg",
+        mimeType: "image/jpeg",
+      } as ImagePicker.ImagePickerAsset);
+    } catch (error) {
+      console.error("PROFILE IMAGE PROCESS ERROR:", error);
+      toast.error("Failed to process the selected image.");
     }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.75,
-      allowsEditing: true,
-      aspect: [1, 1],
-    });
-
-    if (result.canceled) return;
-
-    setProfilePhoto(result.assets[0]);
   };
 
   const handleClose = () => {
@@ -405,7 +479,7 @@ function ProfileModal({
     onClose();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       toast.error("Full name is required.");
       return;
@@ -420,21 +494,42 @@ function ProfileModal({
     formData.append("full_name", name.trim());
     formData.append("phone", phone.trim());
 
-    if (profilePhoto) {
-      formData.append("profile_picture", {
-        uri: profilePhoto.uri,
-        name: profilePhoto.fileName || "profile-photo.jpg",
-        type: profilePhoto.mimeType || "image/jpeg",
-      } as any);
+    if (profilePhoto?.uri) {
+      try {
+        // Build a real Blob-backed File from the manipulated image URI.
+        // This is what satisfies the new FormData validator in SDK 56 —
+        // the old { uri, name, type } object shape is no longer accepted.
+        const fileName = profilePhoto.fileName || `profile-${Date.now()}.jpg`;
+        const file = new File(profilePhoto.uri);
+
+        formData.append("profile_picture", file, fileName);
+      } catch (error) {
+        console.error("Error attaching profile photo: ", error);
+        toast.error("Failed to attach the selected photo.");
+        return;
+      }
     }
 
     onSubmit(formData);
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={handleClose}>
-      <BlurView intensity={Platform.OS === "ios" ? 35 : 18} tint={isDark ? "dark" : "light"} style={{ flex: 1 }}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={handleClose}
+    >
+      <BlurView
+        intensity={Platform.OS === "ios" ? 35 : 18}
+        tint={isDark ? "dark" : "light"}
+        style={{ flex: 1 }}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
           <View className="flex-1 items-center justify-center bg-black/45 px-4">
             <View
               style={{
@@ -446,17 +541,32 @@ function ProfileModal({
               }}
               className="overflow-hidden rounded-[30px] border"
             >
-              <View style={{ borderBottomColor: colors.border }} className="flex-row items-center justify-between border-b px-5 py-5">
+              <View
+                style={{ borderBottomColor: colors.border }}
+                className="flex-row items-center justify-between border-b px-5 py-5"
+              >
                 <View className="flex-1 pr-3">
-                  <Text style={{ color: colors.text }} className="text-xl font-extrabold">
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-xl font-extrabold"
+                  >
                     Edit Profile
                   </Text>
-                  <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+                  <Text
+                    style={{ color: colors.muted }}
+                    className="mt-1 text-xs"
+                  >
                     Update your name, phone number, and profile photo
                   </Text>
                 </View>
 
-                <TouchableOpacity activeOpacity={0.85} onPress={handleClose} disabled={loading} style={{ backgroundColor: colors.input }} className="h-10 w-10 items-center justify-center rounded-full">
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClose}
+                  disabled={loading}
+                  style={{ backgroundColor: colors.input }}
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                >
                   <X size={18} color={colors.text} />
                 </TouchableOpacity>
               </View>
@@ -470,11 +580,21 @@ function ProfileModal({
                   paddingBottom: 20,
                 }}
               >
-                <TouchableOpacity activeOpacity={0.85} onPress={pickProfilePhoto} disabled={loading} className="items-center">
-                  <View style={{ backgroundColor: colors.primary }} className="h-24 w-24 overflow-hidden items-center justify-center rounded-full">
-                    {profilePhoto?.uri || existingPhoto ? (
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={pickProfilePhoto}
+                  disabled={loading}
+                  className="items-center"
+                >
+                  <View
+                    style={{ backgroundColor: colors.primary }}
+                    className="h-24 w-24 overflow-hidden items-center justify-center rounded-full"
+                  >
+                    {getImageUri(profilePhoto) || getImageUri(existingPhoto) ? (
                       <Image
-                        source={{ uri: profilePhoto?.uri || existingPhoto }}
+                        source={{
+                          uri: getImageUri(profilePhoto) || getImageUri(existingPhoto),
+                        }}
                         style={{ width: "100%", height: "100%" }}
                         resizeMode="cover"
                       />
@@ -485,9 +605,15 @@ function ProfileModal({
                     )}
                   </View>
 
-                  <View style={{ backgroundColor: colors.primarySoft }} className="-mt-5 flex-row items-center gap-1 rounded-full px-3 py-1">
+                  <View
+                    style={{ backgroundColor: colors.primarySoft }}
+                    className="-mt-5 flex-row items-center gap-1 rounded-full px-3 py-1"
+                  >
                     <Camera size={12} color={colors.primary} />
-                    <Text style={{ color: colors.primary }} className="text-xs font-extrabold">
+                    <Text
+                      style={{ color: colors.primary }}
+                      className="text-xs font-extrabold"
+                    >
                       Change Photo
                     </Text>
                   </View>
@@ -526,7 +652,7 @@ function ProfileModal({
                 <TouchableOpacity
                   activeOpacity={0.85}
                   disabled={!hasChanges || loading}
-                  onPress={handleSave}
+                  onPress={() => handleSave()}
                   style={{
                     backgroundColor: hasChanges ? colors.primary : colors.input,
                     opacity: hasChanges && !loading ? 1 : 0.65,
@@ -545,8 +671,17 @@ function ProfileModal({
                   )}
                 </TouchableOpacity>
 
-                <TouchableOpacity activeOpacity={0.85} onPress={handleClose} disabled={loading} style={{ backgroundColor: colors.input }} className="mt-3 rounded-2xl py-4">
-                  <Text style={{ color: colors.text }} className="text-center text-base font-extrabold">
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClose}
+                  disabled={loading}
+                  style={{ backgroundColor: colors.input }}
+                  className="mt-3 rounded-2xl py-4"
+                >
+                  <Text
+                    style={{ color: colors.text }}
+                    className="text-center text-base font-extrabold"
+                  >
                     Cancel
                   </Text>
                 </TouchableOpacity>
@@ -582,7 +717,10 @@ function ProfileInput({
 
   return (
     <View className={last ? "" : "mb-4"}>
-      <Text style={{ color: colors.muted }} className="mb-2 text-xs font-bold uppercase">
+      <Text
+        style={{ color: colors.muted }}
+        className="mb-2 text-xs font-bold uppercase"
+      >
         {label}
       </Text>
 
@@ -634,16 +772,28 @@ function getVerificationMeta(user: any) {
   };
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   const { colors } = useAppTheme();
 
   return (
     <View className="mt-7">
-      <Text style={{ color: colors.muted }} className="mb-2 px-1 text-xs font-extrabold uppercase tracking-wider">
+      <Text
+        style={{ color: colors.muted }}
+        className="mb-2 px-1 text-xs font-extrabold uppercase tracking-wider"
+      >
         {title}
       </Text>
 
-      <View style={{ backgroundColor: colors.card, borderColor: colors.border }} className="overflow-hidden rounded-[26px] border">
+      <View
+        style={{ backgroundColor: colors.card, borderColor: colors.border }}
+        className="overflow-hidden rounded-[26px] border"
+      >
         {children}
       </View>
     </View>
@@ -654,11 +804,20 @@ function StatCard({ label, value }: { label: string; value: string }) {
   const { colors } = useAppTheme();
 
   return (
-    <View style={{ backgroundColor: colors.card, borderColor: colors.border }} className="flex-1 rounded-[24px] border p-4">
-      <Text style={{ color: colors.text }} className="text-center text-xl font-extrabold">
+    <View
+      style={{ backgroundColor: colors.card, borderColor: colors.border }}
+      className="flex-1 rounded-[24px] border p-4"
+    >
+      <Text
+        style={{ color: colors.text }}
+        className="text-center text-xl font-extrabold"
+      >
         {value}
       </Text>
-      <Text style={{ color: colors.muted }} className="mt-1 text-center text-xs">
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-center text-xs"
+      >
         {label}
       </Text>
     </View>
@@ -688,7 +847,10 @@ function MenuItem({
       style={{ borderBottomColor: last ? "transparent" : colors.border }}
       className="flex-row items-center gap-3 border-b px-4 py-4"
     >
-      <View style={{ backgroundColor: colors.primarySoft }} className="h-10 w-10 items-center justify-center rounded-xl">
+      <View
+        style={{ backgroundColor: colors.primarySoft }}
+        className="h-10 w-10 items-center justify-center rounded-xl"
+      >
         {icon}
       </View>
 
@@ -708,4 +870,12 @@ function MenuItem({
 
 function getInitial(name?: string) {
   return name?.trim()?.charAt(0)?.toUpperCase() || "U";
+}
+
+
+function getImageUri(value: any) {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value?.uri === "string") return value.uri;
+  return null;
 }
