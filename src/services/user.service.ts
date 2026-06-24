@@ -7,6 +7,14 @@ export async function getMeApi() {
   });
 }
 
+export async function updateProfileApi(formData: FormData) {
+  return apiClient("/users", {
+    method: "PATCH",
+    body: formData,
+    isFormData: true,
+  });
+}
+
 // Account Deletion
 
 export async function getDeleteRequestApi() {
