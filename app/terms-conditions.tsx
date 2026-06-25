@@ -69,7 +69,7 @@ export default function TermsScreen() {
                   style={{ color: colors.muted }}
                   className="mt-1 text-xs leading-5"
                 >
-                  By using Carpooling you agree to the following terms and
+                  By using PoolShare you agree to the following terms and
                   responsibilities.
                 </Text>
               </View>
@@ -140,7 +140,7 @@ These terms may be updated periodically. Continued use of the application consti
               style={{ color: colors.muted }}
               className="text-xs"
             >
-              CarPooling v1.0.0
+              PoolShare v1.0.0
             </Text>
 
             <Text
@@ -154,7 +154,7 @@ These terms may be updated periodically. Continued use of the application consti
               style={{ color: colors.muted }}
               className="mt-1 text-[11px]"
             >
-              © 2026 CarPooling. All rights reserved.
+              © 2026 PoolShare. All rights reserved.
             </Text>
           </View>
         </ScrollView>

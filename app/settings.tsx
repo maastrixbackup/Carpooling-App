@@ -167,7 +167,7 @@ export default function SettingsScreen() {
               style={{ color: colors.muted }}
               className="text-xs"
             >
-              CarPooling v1.0.0
+              PoolShare v1.0.0
             </Text>
 
             <Text
@@ -181,7 +181,7 @@ export default function SettingsScreen() {
               style={{ color: colors.muted }}
               className="mt-1 text-[11px]"
             >
-              © 2026 CarPooling. All rights reserved.
+              © 2026 PoolShare. All rights reserved.
             </Text>
           </View>
         </ScrollView>
