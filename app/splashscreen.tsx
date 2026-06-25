@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/theme/ThemeProvider";
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from "react";
 import { Animated, Image, Platform, StyleSheet, Text, View } from "react-native";
 
@@ -11,6 +12,7 @@ export default function CustomSplashScreen({ onFinish }: { onFinish?: () => void
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
     Animated.parallel([
       Animated.spring(logoScale, {
         toValue: 1,
