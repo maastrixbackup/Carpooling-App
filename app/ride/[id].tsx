@@ -184,6 +184,7 @@ export default function RideDetailsScreen() {
               <ArrowLeft size={22} color={colors.text} />
             </TouchableOpacity>
 
+
             <View
               style={{ backgroundColor: colors.primarySoft }}
               className="rounded-full px-4 py-2"
