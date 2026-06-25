@@ -34,7 +34,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
@@ -93,6 +93,10 @@ export default function BookingDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const confirm = useConfirm();
   const queryClient = useQueryClient();
+
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === "android" ? 24 : 16);
+  const bottomBarHeight = 128 + bottomInset;
 
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
@@ -226,6 +230,7 @@ export default function BookingDetailsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <StickyBookingHeader statusTheme={statusTheme} />
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -233,40 +238,10 @@ export default function BookingDetailsScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
-            paddingBottom: canCancel ? 190 : 135,
+            paddingTop: 18,
+            paddingBottom: bottomBarHeight + 28,
           }}
         >
-          <View className="flex-row items-center justify-between">
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.back()}
-              style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.12,
-                shadowRadius: 18,
-                elevation: 6,
-              }}
-              className="h-11 w-11 items-center justify-center rounded-full border"
-            >
-              <ArrowLeft size={22} color={colors.text} />
-            </TouchableOpacity>
-
-            <View
-              style={{ backgroundColor: statusTheme.bg }}
-              className="rounded-full px-4 py-2"
-            >
-              <Text
-                style={{ color: statusTheme.text }}
-                className="text-xs font-extrabold"
-              >
-                {statusTheme.label}
-              </Text>
-            </View>
-          </View>
 
           <View
             style={{
@@ -561,8 +536,9 @@ export default function BookingDetailsScreen() {
           style={{
             backgroundColor: colors.card,
             borderTopColor: colors.border,
+            paddingBottom: bottomInset,
           }}
-          className="absolute bottom-0 left-0 right-0 border-t rounded-t-[28px] px-5 pb-8 pt-4"
+          className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t px-5 pt-4"
         >
           <View className="mb-4 flex-row items-center justify-between">
             <View>
@@ -987,4 +963,72 @@ function getStatusTheme(
     bg: colors.primarySoft,
     text: colors.primary,
   };
+}
+
+
+function StickyBookingHeader({
+  statusTheme,
+}: {
+  statusTheme: {
+    label: string;
+    bg: string;
+    text: string;
+  };
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
+
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            Booking Details
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Trip, driver & payment summary
+          </Text>
+        </View>
+
+        <View
+          style={{ backgroundColor: statusTheme.bg }}
+          className="rounded-full px-3 py-2"
+        >
+          <Text
+            style={{ color: statusTheme.text }}
+            className="text-[11px] font-extrabold"
+            numberOfLines={1}
+          >
+            {statusTheme.label}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
 }
