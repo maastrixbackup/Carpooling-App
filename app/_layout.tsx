@@ -12,7 +12,7 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Toaster } from "sonner-native";
 import "../global.css";
-import CustomSplashScreen from "./splashscreen";
+import CustomSplashScreen from "../src/components/common/splashscreen";
 
 SplashScreen.preventAutoHideAsync().catch(() => { });
 

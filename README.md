@@ -20,13 +20,10 @@ To generater apk : eas build -p android --profile preview
 
 # Checklist Before Build
 
-npx expo-doctor
-
-npx expo install --check
-
-npx expo config --type public
-
-npx expo prebuild --clean --no-install
+1. npx expo-doctor
+2. npx expo install --check
+3. npx expo config --type public
+4. npx expo prebuild --clean --no-install
 
 cd android
 
