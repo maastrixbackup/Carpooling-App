@@ -17,13 +17,12 @@ import {
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -111,6 +110,16 @@ export default function MessagesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <StickyMessagesHeader
+          search={search}
+          setSearch={setSearch}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          unreadPassengerCount={unreadPassengerCount}
+          unreadDriverCount={unreadDriverCount}
+          onRefresh={refetch}
+        />
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -119,31 +128,22 @@ export default function MessagesScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 18,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
+            paddingTop: 18,
             paddingBottom: 120,
           }}
         >
-          <Header onRefresh={refetch} />
 
-          <SearchBox search={search} setSearch={setSearch} />
-
-          <TelegramTabs
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            unreadPassengerCount={unreadPassengerCount}
-            unreadDriverCount={unreadDriverCount}
-          />
 
           <View className="mt-6 flex-row items-end justify-between">
             <View className="flex-1">
               <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                {activeTab === "passengers" ? "Passenger Chats" : "Driver Messages"}
+                {activeTab === "passengers" ? "Passenger Inbox" : "Driver Inbox"}
               </Text>
 
               <Text style={{ color: colors.muted }} className="mt-1 text-xs leading-4">
                 {activeTab === "passengers"
-                  ? "People messaging you as a driver"
-                  : "Drivers messaging you as a passenger"}
+                  ? "Passengers travelling with you"
+                  : "Drivers for your booked rides"}
               </Text>
             </View>
 
@@ -181,37 +181,94 @@ export default function MessagesScreen() {
   );
 }
 
-function Header({ onRefresh }: { onRefresh: () => void }) {
+function StickyMessagesHeader({
+  search,
+  setSearch,
+  activeTab,
+  setActiveTab,
+  unreadPassengerCount,
+  unreadDriverCount,
+  onRefresh,
+}: {
+  search: string;
+  setSearch: (value: string) => void;
+  activeTab: ChatTab;
+  setActiveTab: (value: ChatTab) => void;
+  unreadPassengerCount: number;
+  unreadDriverCount: number;
+  onRefresh: () => void;
+}) {
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center gap-4">
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => router.back()}
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="h-11 w-11 items-center justify-center rounded-full border"
-      >
-        <ArrowLeft size={22} color={colors.text} />
-      </TouchableOpacity>
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      {/* Top Row */}
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft
+            size={22}
+            color={colors.text}
+          />
+        </TouchableOpacity>
 
-      <View className="flex-1">
-        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          Messages
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          Ride chats in one inbox
-        </Text>
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+          >
+            Messages
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+          >
+            Ride conversations
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={onRefresh}
+          style={{
+            backgroundColor: colors.primarySoft,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full"
+        >
+          <RefreshCcw
+            size={20}
+            color={colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onRefresh}
-        style={{ backgroundColor: colors.primarySoft }}
-        className="h-12 w-12 items-center justify-center rounded-full"
-      >
-        <RefreshCcw size={20} color={colors.primary} />
-      </TouchableOpacity>
+      {/* Search */}
+
+      <SearchBox
+        search={search}
+        setSearch={setSearch}
+      />
+
+      {/* Tabs */}
+
+      <TelegramTabs
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        unreadPassengerCount={unreadPassengerCount}
+        unreadDriverCount={unreadDriverCount}
+      />
     </View>
   );
 }
@@ -357,7 +414,7 @@ function ChatListItem({ item, last }: { item: ChatItem; last?: boolean }) {
       onPress={() =>
         router.push({
           pathname: "/chat/[roomId]",
-          params: { roomId: item.roomId, title:item.name || "User" },
+          params: { roomId: item.roomId, title: item.name || "User" },
         })
       }
       style={{ borderBottomColor: last ? "transparent" : colors.border }}

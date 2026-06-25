@@ -219,6 +219,7 @@ export default function VehiclesScreen() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
         >
+          <StickyHeader />
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -227,11 +228,10 @@ export default function VehiclesScreen() {
             }
             contentContainerStyle={{
               paddingHorizontal: 20,
-              paddingTop: Platform.OS === "android" ? 16 : 12,
+              paddingTop: 18,
               paddingBottom: bottomActionHeight + 32,
             }}
           >
-            <Header />
 
             <InfoBanner />
 
@@ -386,31 +386,6 @@ export default function VehiclesScreen() {
   );
 }
 
-function Header() {
-  const { colors } = useAppTheme();
-
-  return (
-    <View className="flex-row items-center gap-4">
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => router.back()}
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="h-11 w-11 items-center justify-center rounded-full border"
-      >
-        <ArrowLeft size={22} color={colors.text} />
-      </TouchableOpacity>
-
-      <View className="flex-1">
-        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          My Vehicles
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          Add and verify cars for publishing rides.
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 function InfoBanner() {
   const { colors } = useAppTheme();
@@ -863,5 +838,54 @@ function UploadCard({
         </Text>
       </View>
     </TouchableOpacity>
+  );
+}
+
+
+function StickyHeader() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
+
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            My Vehicles
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Manage and add vehicle
+          </Text>
+        </View>
+
+        <View className="h-11 w-11" />
+      </View>
+    </View>
   );
 }

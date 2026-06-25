@@ -13,16 +13,15 @@ import {
   Star,
   Trophy,
   Users,
-  Wallet,
+  Wallet
 } from "lucide-react-native";
 import {
   ActivityIndicator,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -60,6 +59,7 @@ export default function RewardsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <StickyRewardsHeader onRefresh={refetch} />
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -67,44 +67,10 @@ export default function RewardsScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
+            paddingTop: 18,
             paddingBottom: 120,
           }}
         >
-          <View className="flex-row items-center gap-4">
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.back()}
-              style={{
-                backgroundColor: colors.card,
-                borderColor: colors.border,
-              }}
-              className="h-11 w-11 items-center justify-center rounded-full border"
-            >
-              <ArrowLeft size={22} color={colors.text} />
-            </TouchableOpacity>
-
-            <View className="flex-1">
-              <Text
-                style={{ color: colors.text }}
-                className="text-3xl font-extrabold"
-              >
-                Rewards
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-                Track points and ride benefits
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => refetch()}
-              style={{ backgroundColor: colors.primarySoft }}
-              className="h-11 w-11 items-center justify-center rounded-full"
-            >
-              <RefreshCcw size={18} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
 
           {isLoading ? (
             <LoadingCard />
@@ -572,4 +538,60 @@ function formatRewardDate(value?: string) {
     month: "short",
     year: "numeric",
   });
+}
+
+
+function StickyRewardsHeader({ onRefresh }: { onRefresh: () => void }) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
+
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            Rewards
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Points, levels & ride benefits
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={onRefresh}
+          style={{ backgroundColor: colors.primarySoft }}
+          className="h-11 w-11 items-center justify-center rounded-full"
+        >
+          <RefreshCcw size={18} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
