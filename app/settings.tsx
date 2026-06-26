@@ -68,6 +68,7 @@ export default function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <StickyHeader />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
@@ -76,8 +77,6 @@ export default function SettingsScreen() {
             paddingBottom: 120,
           }}
         >
-          <Header title="Settings" subtitle="Preferences and account controls" />
-
           <View
             style={{ backgroundColor: colors.primary }}
             className="mt-6 overflow-hidden rounded-[34px] p-6"
@@ -167,7 +166,7 @@ export default function SettingsScreen() {
               style={{ color: colors.muted }}
               className="text-xs"
             >
-              CarPooling v1.0.0
+              PoolShare v1.0.0
             </Text>
 
             <Text
@@ -181,7 +180,7 @@ export default function SettingsScreen() {
               style={{ color: colors.muted }}
               className="mt-1 text-[11px]"
             >
-              © 2026 CarPooling. All rights reserved.
+              © 2026 PoolShare. All rights reserved.
             </Text>
           </View>
         </ScrollView>
@@ -198,30 +197,7 @@ export default function SettingsScreen() {
   );
 }
 
-function Header({ title, subtitle }: { title: string; subtitle: string }) {
-  const { colors } = useAppTheme();
 
-  return (
-    <View className="flex-row items-center gap-4">
-      <TouchableOpacity
-        onPress={() => router.back()}
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="h-11 w-11 items-center justify-center rounded-full border"
-      >
-        <ArrowLeft size={22} color={colors.text} />
-      </TouchableOpacity>
-
-      <View className="flex-1">
-        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          {title}
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          {subtitle}
-        </Text>
-      </View>
-    </View>
-  );
-}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   const { colors } = useAppTheme();
@@ -319,7 +295,7 @@ function DeleteAccountModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <View className="flex-1 items-center justify-center bg-black/75 px-4">
           <View
             style={{
@@ -548,4 +524,52 @@ function formatDate(value?: string) {
     month: "short",
     year: "numeric",
   });
+}
+
+function StickyHeader() {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
+
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            Settings
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            App preferences & account controls
+          </Text>
+        </View>
+
+        <View className="h-11 w-11" />
+      </View>
+    </View>
+  );
 }

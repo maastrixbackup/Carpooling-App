@@ -74,7 +74,7 @@ export default function AboutScreen() {
                                     style={{ color: colors.text }}
                                     className="text-3xl font-extrabold"
                                 >
-                                    CarPooling
+                                    PoolShare
                                 </Text>
 
                                 <Text
@@ -143,7 +143,7 @@ export default function AboutScreen() {
                             </View>
 
                             <Text style={{ color: colors.muted }} className="mt-4 text-sm leading-6">
-                                CarPooling is being developed by Maastrix Solutions with a focus
+                                PoolShare is being developed by Maastrix Solutions with a focus
                                 on clean user experience, secure backend systems, scalable app
                                 architecture, and practical mobility workflows.
                             </Text>
@@ -189,7 +189,7 @@ export default function AboutScreen() {
                         <ActionRow
                             icon={<Info size={20} color={colors.primary} />}
                             title="Terms & Conditions"
-                            subtitle="Rules for using CarPooling"
+                            subtitle="Rules for using PoolShare"
                             onPress={() => router.push("/terms-conditions" as any)}
                             last
                         />
@@ -200,13 +200,13 @@ export default function AboutScreen() {
                         className="mt-8 items-center pt-5"
                     >
                         <Text style={{ color: colors.muted }} className="text-xs font-semibold">
-                            CarPooling v1.0.0
+                            PoolShare v1.0.0
                         </Text>
                         <Text style={{ color: colors.muted }} className="mt-1 text-[11px]">
                             Developed by Maastrix Solutions
                         </Text>
                         <Text style={{ color: colors.muted }} className="mt-1 text-[11px]">
-                            © 2026 CarPooling. All rights reserved.
+                            © 2026 PoolShare. All rights reserved.
                         </Text>
                     </View>
                 </ScrollView>

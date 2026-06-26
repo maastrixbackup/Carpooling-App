@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Car Pooling",
-    "slug": "car-pooling",
+    "name": "Pool Share",
+    "slug": "pool-sharing",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/1024.png",
-    "scheme": "carpooling",
+    "scheme": "poolshare",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/1024.png"
@@ -33,13 +33,13 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#020817",
-          "image": "./assets/images/splash.png",
-          "imageWidth": 300,
+          "image": "./assets/images/notification-icon.png",
+          "imageWidth": 135,
           "resizeMode": "contain",
           "dark": {
             "backgroundColor": "#020817",
-            "image": "./assets/images/splash.png",
-            "imageWidth": 300,
+            "image": "./assets/images/notification-icon.png",
+            "imageWidth": 135,
             "resizeMode": "contain"
           }
         }

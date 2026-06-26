@@ -1,17 +1,17 @@
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { router } from "expo-router";
 import {
-    ArrowLeft,
-    Banknote,
-    CheckCircle2,
-    CreditCard,
-    IndianRupee,
-    Plus,
-    ReceiptText,
-    ShieldCheck,
-    Wallet,
+  ArrowLeft,
+  Banknote,
+  CheckCircle2,
+  CreditCard,
+  IndianRupee,
+  Plus,
+  ReceiptText,
+  ShieldCheck,
+  Wallet,
 } from "lucide-react-native";
-import { Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const transactions = [
@@ -44,16 +44,16 @@ export default function PaymentsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        
+        <StickyPaymentsHeader />
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
+            paddingTop: 18,
             paddingBottom: 120,
           }}
         >
-          <Header />
-
           <View
             style={{ backgroundColor: colors.primary }}
             className="mt-6 overflow-hidden rounded-[34px] p-6"
@@ -165,27 +165,49 @@ export default function PaymentsScreen() {
   );
 }
 
-function Header() {
+function StickyPaymentsHeader() {
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center gap-4">
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => router.back()}
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="h-11 w-11 items-center justify-center rounded-full border"
-      >
-        <ArrowLeft size={22} color={colors.text} />
-      </TouchableOpacity>
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
 
-      <View>
-        <Text style={{ color: colors.text }} className="text-3xl font-extrabold">
-          Payments
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-sm">
-          Wallet, methods, and transaction history
-        </Text>
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            Payments
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Wallet, methods & transaction history
+          </Text>
+        </View>
+
+        <View className="h-11 w-11" />
       </View>
     </View>
   );

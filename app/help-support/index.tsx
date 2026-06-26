@@ -1,44 +1,44 @@
 import {
-    createSupportTicketApi,
-    getMySupportTicketsApi,
-    SupportCategoryKey,
+  createSupportTicketApi,
+  getMySupportTicketsApi,
+  SupportCategoryKey,
 } from "@/services/support.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
-    AlertTriangle,
-    ArrowLeft,
-    BadgeHelp,
-    Car,
-    CheckCircle2,
-    ChevronRight,
-    CreditCard,
-    FileQuestion,
-    Headphones,
-    LifeBuoy,
-    Lock,
-    MessageSquareText,
-    RefreshCcw,
-    Send,
-    ShieldAlert,
-    Ticket,
-    Wrench,
-    X,
+  AlertTriangle,
+  ArrowLeft,
+  BadgeHelp,
+  Car,
+  CheckCircle2,
+  ChevronRight,
+  CreditCard,
+  FileQuestion,
+  Headphones,
+  LifeBuoy,
+  Lock,
+  MessageSquareText,
+  RefreshCcw,
+  Send,
+  ShieldAlert,
+  Ticket,
+  Wrench,
+  X,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -105,6 +105,7 @@ export default function HelpSupportScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <StickySupportHeader onRefresh={refetch} />
         <ScrollView
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -112,11 +113,10 @@ export default function HelpSupportScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
+            paddingTop: 18,
             paddingBottom: 120,
           }}
         >
-          <Header onRefresh={refetch} />
 
           <HeroCard openTickets={openTickets} totalTickets={tickets.length} />
 
@@ -521,7 +521,7 @@ function CreateTicketModal({
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
         <View className="flex-1 items-center justify-center bg-black/75 px-4">
@@ -739,4 +739,59 @@ function formatDate(value?: string) {
     day: "2-digit",
     month: "short",
   });
+}
+
+function StickySupportHeader({ onRefresh }: { onRefresh: () => void }) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+      }}
+      className="border-b px-5 pb-4 pt-3"
+    >
+      <View className="flex-row items-center gap-3">
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-full border"
+        >
+          <ArrowLeft size={22} color={colors.text} />
+        </TouchableOpacity>
+
+        <View className="flex-1 items-center">
+          <Text
+            style={{ color: colors.text }}
+            className="text-lg font-extrabold"
+            numberOfLines={1}
+          >
+            Help & Support
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Tickets, safety & account help
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={onRefresh}
+          style={{ backgroundColor: colors.primarySoft }}
+          className="h-11 w-11 items-center justify-center rounded-full"
+        >
+          <RefreshCcw size={18} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 }
