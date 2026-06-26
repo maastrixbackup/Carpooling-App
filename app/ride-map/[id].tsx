@@ -15,8 +15,8 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
-import MapView, { Marker, Polyline, UrlTile } from "react-native-maps";
-// import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+// import MapView from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type LatLng = {
@@ -32,15 +32,12 @@ type RouteCacheValue = {
 
 const routeCache = new Map<string, RouteCacheValue>();
 
-const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
-console.log("MAPTILER KEY:", MAPTILER_KEY);
+// const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
+// console.log("MAPTILER KEY:", MAPTILER_KEY);
 
-function getMapTilerTileUrl(isDark: boolean) {
-  const style = isDark ? "dataviz-dark" : "streets-v2";
-  const url = `https://api.maptiler.com/maps/${style}/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
-  console.log("MAPTILER URL:", url);
-  return url;
-}
+// function getMapTilerTileUrl() {
+//   return `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+// }
 
 function mapApiRide(ride: any) {
   return {
@@ -296,7 +293,7 @@ export default function RideMapScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
-      {/* <MapView
+      <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
@@ -348,13 +345,13 @@ export default function RideMapScreen() {
             color={colors.success}
           />
         </Marker>
-      </MapView> */}
+      </MapView>
 
 
-      <MapView
+      {/* <MapView
         ref={mapRef}
         provider={undefined}
-        mapType="none"
+        mapType={Platform.OS === "android" ? "none" : "standard"}
         style={{ flex: 1 }}
         initialRegion={{
           latitude: pickupCoordinate.latitude,
@@ -362,7 +359,7 @@ export default function RideMapScreen() {
           latitudeDelta: 0.18,
           longitudeDelta: 0.18,
         }}
-        showsUserLocation
+        showsUserLocation={false}
         showsMyLocationButton={false}
         toolbarEnabled={false}
         loadingEnabled
@@ -370,8 +367,10 @@ export default function RideMapScreen() {
       >
         {MAPTILER_KEY && (
           <UrlTile
-            urlTemplate={getMapTilerTileUrl(isDark)}
+            urlTemplate={getMapTilerTileUrl()}
             maximumZ={19}
+            minimumZ={0}
+            tileSize={256}
             flipY={false}
           />
         )}
@@ -410,7 +409,7 @@ export default function RideMapScreen() {
             color={colors.success}
           />
         </Marker>
-      </MapView>
+      </MapView> */}
 
       {isRouteLoading && routeCoords.length === 0 && (
         <View className="absolute inset-0 items-center justify-center bg-black/10">
