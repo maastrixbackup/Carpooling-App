@@ -1,3 +1,4 @@
+import { APP_INFO } from "@/config/appInfo";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { router } from "expo-router";
 import {
@@ -92,9 +93,9 @@ export default function AboutScreen() {
                         </Text>
 
                         <View className="mt-5 flex-row gap-3">
-                            <MiniBadge label="v1.0.0" />
-                            <MiniBadge label="Build 1" />
-                            <MiniBadge label="Beta" />
+                            <MiniBadge label={`v${APP_INFO.version}`} />
+                            <MiniBadge label={`Build ${APP_INFO.build}`} />
+                            <MiniBadge label={APP_INFO.stage} />
                         </View>
                     </View>
 
@@ -200,7 +201,7 @@ export default function AboutScreen() {
                         className="mt-8 items-center pt-5"
                     >
                         <Text style={{ color: colors.muted }} className="text-xs font-semibold">
-                            PoolShare v1.0.0
+                            {APP_INFO.name} v{APP_INFO.version}
                         </Text>
                         <Text style={{ color: colors.muted }} className="mt-1 text-[11px]">
                             Developed by Maastrix Solutions

@@ -1,3 +1,4 @@
+import { APP_INFO } from "@/config/appInfo";
 import { useAuth } from "@/context/AuthContext";
 import { cancelDeleteAccountApi, getDeleteRequestApi, requestDeleteAccountApi } from "@/services/user.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -166,14 +167,14 @@ export default function SettingsScreen() {
               style={{ color: colors.muted }}
               className="text-xs"
             >
-              PoolShare v1.0.0
+              {APP_INFO.name} v{APP_INFO.version}
             </Text>
 
             <Text
               style={{ color: colors.muted }}
               className="mt-1 text-[11px]"
             >
-              Effective Date: 22 June 2026
+              Effective Date: {APP_INFO.effective_date}
             </Text>
 
             <Text
