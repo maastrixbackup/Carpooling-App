@@ -162,7 +162,7 @@ export default function BookingDetailsScreen() {
       return;
     }
 
-    Linking.openURL(`tel:${booking.driverPhone}`);
+    Linking.openURL(`tel:$+91{booking.driverPhone}`);
   };
 
   const handleOpenChat = async () => {
