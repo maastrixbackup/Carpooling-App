@@ -11,11 +11,12 @@ import {
   Navigation,
   ShieldCheck,
   Star,
-  Users,
+  Users
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, Polyline, UrlTile } from "react-native-maps";
+// import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type LatLng = {
@@ -30,6 +31,13 @@ type RouteCacheValue = {
 };
 
 const routeCache = new Map<string, RouteCacheValue>();
+
+const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
+
+function getMapTilerTileUrl(isDark: boolean) {
+  const style = isDark ? "dataviz-dark" : "streets-v2";
+  return `https://api.maptiler.com/maps/${style}/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+}
 
 function mapApiRide(ride: any) {
   return {
@@ -284,7 +292,8 @@ export default function RideMapScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <MapView
+
+      {/* <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={{ flex: 1 }}
@@ -301,6 +310,69 @@ export default function RideMapScreen() {
         loadingEnabled
         rotateEnabled={false}
       >
+        {routeCoords.length > 0 && (
+          <>
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor="rgba(0,102,204,0.22)"
+              strokeWidth={10}
+              geodesic={false}
+            />
+
+            <Polyline
+              coordinates={routeCoords}
+              strokeColor={colors.primary}
+              strokeWidth={5}
+              geodesic={false}
+              lineCap="round"
+              lineJoin="round"
+            />
+          </>
+        )}
+
+        <Marker coordinate={pickupCoordinate} title={ride.pickup}>
+          <RouteMarker
+            label="Pickup"
+            icon={<MapPin size={18} color="#FFFFFF" />}
+            color={colors.primary}
+          />
+        </Marker>
+
+        <Marker coordinate={dropCoordinate} title={ride.drop}>
+          <RouteMarker
+            label="Drop"
+            icon={<Navigation size={18} color="#FFFFFF" />}
+            color={colors.success}
+          />
+        </Marker>
+      </MapView> */}
+
+
+      <MapView
+        ref={mapRef}
+        provider={undefined}
+        mapType="none"
+        style={{ flex: 1 }}
+        initialRegion={{
+          latitude: pickupCoordinate.latitude,
+          longitude: pickupCoordinate.longitude,
+          latitudeDelta: 0.18,
+          longitudeDelta: 0.18,
+        }}
+        showsUserLocation
+        showsMyLocationButton={false}
+        toolbarEnabled={false}
+        loadingEnabled
+        rotateEnabled={false}
+      >
+        {MAPTILER_KEY && (
+          <UrlTile
+            urlTemplate={getMapTilerTileUrl(isDark)}
+            maximumZ={19}
+            flipY={false}
+            zIndex={-1}
+          />
+        )}
         {routeCoords.length > 0 && (
           <>
             <Polyline
