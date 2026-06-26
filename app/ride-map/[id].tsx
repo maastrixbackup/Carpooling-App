@@ -33,6 +33,7 @@ type RouteCacheValue = {
 const routeCache = new Map<string, RouteCacheValue>();
 
 const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
+console.log("MAPTILER KEY:", MAPTILER_KEY);
 
 function getMapTilerTileUrl(isDark: boolean) {
   const style = isDark ? "dataviz-dark" : "streets-v2";
@@ -370,7 +371,6 @@ export default function RideMapScreen() {
             urlTemplate={getMapTilerTileUrl(isDark)}
             maximumZ={19}
             flipY={false}
-            zIndex={-1}
           />
         )}
         {routeCoords.length > 0 && (
