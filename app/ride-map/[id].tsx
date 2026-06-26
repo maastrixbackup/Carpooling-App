@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Clock,
   LocateFixed,
+  MapPin,
   Navigation,
   ShieldCheck,
   Star,
@@ -15,7 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 // import MapView from "react-native-maps";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type LatLng = {
@@ -180,6 +181,7 @@ export default function RideMapScreen() {
       const destination = `${dropCoordinate.latitude},${dropCoordinate.longitude}`;
 
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${apiKey}`;
+      console.log(url)
 
       const response = await fetch(url);
       const result = await response.json();
@@ -233,6 +235,22 @@ export default function RideMapScreen() {
 
     return () => clearTimeout(timer);
   }, [ride, routeCoords.length, fitRouteToScreen]);
+
+  useEffect(() => {
+    if (!mapRef.current || routeCoords.length < 2) return;
+
+    setTimeout(() => {
+      mapRef.current?.fitToCoordinates(routeCoords, {
+        edgePadding: {
+          top: 150,
+          right: 70,
+          bottom: 300,
+          left: 70,
+        },
+        animated: true,
+      });
+    }, 300);
+  }, [routeCoords]);
 
   useFocusEffect(
     useCallback(() => {
@@ -292,20 +310,8 @@ export default function RideMapScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
 
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={{ flex: 1 }}
-        initialRegion={{
-          latitude: 20.2961,
-          longitude: 85.8245,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }}
-        onMapReady={() => console.log("MAP READY")}
-        onMapLoaded={() => console.log("MAP LOADED")}
-      />
 
-      {/* 
+
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -313,30 +319,37 @@ export default function RideMapScreen() {
         initialRegion={{
           latitude: pickupCoordinate.latitude,
           longitude: pickupCoordinate.longitude,
-          latitudeDelta: 0.18,
-          longitudeDelta: 0.18,
+          latitudeDelta: 0.04,
+          longitudeDelta: 0.04,
         }}
         customMapStyle={isDark ? darkMapStyle : []}
         showsUserLocation
-        showsMyLocationButton={false}
-        toolbarEnabled={false}
+        followsUserLocation={false}
+        showsCompass
+        showsBuildings
+        showsIndoors
         loadingEnabled
-        rotateEnabled={false}
+        loadingIndicatorColor={colors.primary}
+        loadingBackgroundColor={colors.bg}
+        toolbarEnabled={false}
+        rotateEnabled
+        pitchEnabled
+        moveOnMarkerPress={false}
+        showsScale={false}
       >
         {routeCoords.length > 0 && (
           <>
             <Polyline
               coordinates={routeCoords}
-              strokeColor="rgba(0,102,204,0.22)"
-              strokeWidth={10}
-              geodesic={false}
+              strokeColor="rgba(0,0,0,0.18)"
+              strokeWidth={11}
             />
 
+            {/* Main */}
             <Polyline
               coordinates={routeCoords}
               strokeColor={colors.primary}
               strokeWidth={5}
-              geodesic={false}
               lineCap="round"
               lineJoin="round"
             />
@@ -358,7 +371,7 @@ export default function RideMapScreen() {
             color={colors.success}
           />
         </Marker>
-      </MapView> */}
+      </MapView>
 
 
 

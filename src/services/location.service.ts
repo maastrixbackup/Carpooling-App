@@ -15,95 +15,95 @@ export type PlaceDetails = {
   longitude: number;
 };
 
-// export async function searchIndiaPlaces(
-//   input: string,
-// ): Promise<PlaceSuggestion[]> {
-//   if (!GOOGLE_KEY) {
-//     throw new Error("Missing Google Maps API key.");
-//   }
+export async function searchIndiaPlaces(
+  input: string,
+): Promise<PlaceSuggestion[]> {
+  if (!GOOGLE_KEY) {
+    throw new Error("Missing Google Maps API key.");
+  }
 
-//   if (!input.trim() || input.trim().length < 2) {
-//     return [];
-//   }
+  if (!input.trim() || input.trim().length < 2) {
+    return [];
+  }
 
-//   const url =
-//     `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
-//     `?input=${encodeURIComponent(input.trim())}` +
-//     `&key=${GOOGLE_KEY}` +
-//     `&components=country:in` +
-//     `&language=en`;
+  const url =
+    `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
+    `?input=${encodeURIComponent(input.trim())}` +
+    `&key=${GOOGLE_KEY}` +
+    `&components=country:in` +
+    `&language=en`;
 
-//   const response = await fetch(url);
-//   const data = await response.json();
+  const response = await fetch(url);
+  const data = await response.json();
 
-//   if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-//     throw new Error(data.error_message || data.status || "Place search failed");
-//   }
+  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+    throw new Error(data.error_message || data.status || "Place search failed");
+  }
 
-//   return (data.predictions || []).map((item: any) => ({
-//     place_id: item.place_id,
-//     description: item.description,
-//     main_text: item.structured_formatting?.main_text || item.description,
-//     secondary_text: item.structured_formatting?.secondary_text || "",
-//   }));
-// }
+  return (data.predictions || []).map((item: any) => ({
+    place_id: item.place_id,
+    description: item.description,
+    main_text: item.structured_formatting?.main_text || item.description,
+    secondary_text: item.structured_formatting?.secondary_text || "",
+  }));
+}
 
-// export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
-//   if (!GOOGLE_KEY) {
-//     throw new Error("Missing Google Maps API key.");
-//   }
+export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
+  if (!GOOGLE_KEY) {
+    throw new Error("Missing Google Maps API key.");
+  }
 
-//   const url =
-//     `https://maps.googleapis.com/maps/api/place/details/json` +
-//     `?place_id=${placeId}` +
-//     `&key=${GOOGLE_KEY}` +
-//     `&fields=place_id,formatted_address,geometry,name`;
+  const url =
+    `https://maps.googleapis.com/maps/api/place/details/json` +
+    `?place_id=${placeId}` +
+    `&key=${GOOGLE_KEY}` +
+    `&fields=place_id,formatted_address,geometry,name`;
 
-//   const response = await fetch(url);
-//   const data = await response.json();
+  const response = await fetch(url);
+  const data = await response.json();
 
-//   if (data.status !== "OK") {
-//     throw new Error(
-//       data.error_message || data.status || "Place details failed",
-//     );
-//   }
+  if (data.status !== "OK") {
+    throw new Error(
+      data.error_message || data.status || "Place details failed",
+    );
+  }
 
-//   const result = data.result;
+  const result = data.result;
 
-//   return {
-//     placeId: result.place_id,
-//     name: result.name,
-//     address: result.formatted_address,
-//     latitude: result.geometry.location.lat,
-//     longitude: result.geometry.location.lng,
-//   };
-// }
+  return {
+    placeId: result.place_id,
+    name: result.name,
+    address: result.formatted_address,
+    latitude: result.geometry.location.lat,
+    longitude: result.geometry.location.lng,
+  };
+}
 
-// export async function geocodeAddress(address: string) {
-//   if (!GOOGLE_KEY) {
-//     throw new Error("Missing Google Maps API key.");
-//   }
+export async function geocodeAddress(address: string) {
+  if (!GOOGLE_KEY) {
+    throw new Error("Missing Google Maps API key.");
+  }
 
-//   const url =
-//     `https://maps.googleapis.com/maps/api/geocode/json` +
-//     `?address=${encodeURIComponent(address)}` +
-//     `&key=${GOOGLE_KEY}`;
+  const url =
+    `https://maps.googleapis.com/maps/api/geocode/json` +
+    `?address=${encodeURIComponent(address)}` +
+    `&key=${GOOGLE_KEY}`;
 
-//   const response = await fetch(url);
-//   const data = await response.json();
+  const response = await fetch(url);
+  const data = await response.json();
 
-//   if (data.status !== "OK") {
-//     throw new Error(data.error_message || data.status || "Geocoding failed");
-//   }
+  if (data.status !== "OK") {
+    throw new Error(data.error_message || data.status || "Geocoding failed");
+  }
 
-//   const result = data.results[0];
+  const result = data.results[0];
 
-//   return {
-//     latitude: result.geometry.location.lat,
-//     longitude: result.geometry.location.lng,
-//     formattedAddress: result.formatted_address,
-//   };
-// }
+  return {
+    latitude: result.geometry.location.lat,
+    longitude: result.geometry.location.lng,
+    formattedAddress: result.formatted_address,
+  };
+}
 
 //// New
 
@@ -249,228 +249,228 @@ export type PlaceDetails = {
 //   };
 // }
 
-const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
+// const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY;
 
-// type PlaceSuggestion = {
-//   place_id: string;
-//   description: string;
-//   main_text: string;
-//   secondary_text: string;
-// };
+// // type PlaceSuggestion = {
+// //   place_id: string;
+// //   description: string;
+// //   main_text: string;
+// //   secondary_text: string;
+// // };
 
-// type PlaceDetails = {
-//   placeId: string;
-//   name: string;
-//   address: string;
-//   latitude: number;
-//   longitude: number;
-// };
+// // type PlaceDetails = {
+// //   placeId: string;
+// //   name: string;
+// //   address: string;
+// //   latitude: number;
+// //   longitude: number;
+// // };
 
-function assertGeoapifyKey() {
-  if (!GEOAPIFY_API_KEY) {
-    throw new Error("Missing EXPO_PUBLIC_GEOAPIFY_API_KEY");
-  }
-}
+// function assertGeoapifyKey() {
+//   if (!GEOAPIFY_API_KEY) {
+//     throw new Error("Missing EXPO_PUBLIC_GEOAPIFY_API_KEY");
+//   }
+// }
 
-function buildGeoContext(payload: any) {
-  return `geo-ctx-${encodeURIComponent(JSON.stringify(payload))}`;
-}
+// function buildGeoContext(payload: any) {
+//   return `geo-ctx-${encodeURIComponent(JSON.stringify(payload))}`;
+// }
 
-function parseGeoContext(placeId: string) {
-  if (!placeId?.startsWith("geo-ctx-")) {
-    throw new Error("Invalid Geoapify context place id.");
-  }
+// function parseGeoContext(placeId: string) {
+//   if (!placeId?.startsWith("geo-ctx-")) {
+//     throw new Error("Invalid Geoapify context place id.");
+//   }
 
-  const cleanJsonString = decodeURIComponent(placeId.replace("geo-ctx-", ""));
-  return JSON.parse(cleanJsonString);
-}
+//   const cleanJsonString = decodeURIComponent(placeId.replace("geo-ctx-", ""));
+//   return JSON.parse(cleanJsonString);
+// }
 
-function getMainText(props: any) {
-  return (
-    props.name ||
-    props.street ||
-    props.suburb ||
-    props.city ||
-    props.county ||
-    props.state ||
-    "Selected Location"
-  );
-}
+// function getMainText(props: any) {
+//   return (
+//     props.name ||
+//     props.street ||
+//     props.suburb ||
+//     props.city ||
+//     props.county ||
+//     props.state ||
+//     "Selected Location"
+//   );
+// }
 
-function getSecondaryText(props: any) {
-  return [
-    props.street,
-    props.suburb,
-    props.city,
-    props.county,
-    props.state,
-    props.country,
-  ]
-    .filter(Boolean)
-    .join(", ");
-}
+// function getSecondaryText(props: any) {
+//   return [
+//     props.street,
+//     props.suburb,
+//     props.city,
+//     props.county,
+//     props.state,
+//     props.country,
+//   ]
+//     .filter(Boolean)
+//     .join(", ");
+// }
 
-export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
-  try {
-    const parsedLocation = parseGeoContext(placeId);
+// export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
+//   try {
+//     const parsedLocation = parseGeoContext(placeId);
 
-    return {
-      placeId,
-      name: parsedLocation.name || "Selected Location",
-      address: parsedLocation.address || "India",
-      latitude: Number(parsedLocation.latitude),
-      longitude: Number(parsedLocation.longitude),
-    };
-  } catch (error: any) {
-    throw new Error(error.message || "Failed to resolve place details");
-  }
-}
+//     return {
+//       placeId,
+//       name: parsedLocation.name || "Selected Location",
+//       address: parsedLocation.address || "India",
+//       latitude: Number(parsedLocation.latitude),
+//       longitude: Number(parsedLocation.longitude),
+//     };
+//   } catch (error: any) {
+//     throw new Error(error.message || "Failed to resolve place details");
+//   }
+// }
 
-export async function searchIndiaPlaces(
-  input: string,
-): Promise<PlaceSuggestion[]> {
-  assertGeoapifyKey();
+// export async function searchIndiaPlaces(
+//   input: string,
+// ): Promise<PlaceSuggestion[]> {
+//   assertGeoapifyKey();
 
-  const query = input.trim();
-  if (query.length < 2) return [];
+//   const query = input.trim();
+//   if (query.length < 2) return [];
 
-  const bhubaneswarBBox = "85.7300,20.2100,85.9000,20.4100";
-  const odishaBBox = "81.39,17.78,87.50,22.57";
-  const bhubaneswarCenter = "85.8245,20.2961";
+//   const bhubaneswarBBox = "85.7300,20.2100,85.9000,20.4100";
+//   const odishaBBox = "81.39,17.78,87.50,22.57";
+//   const bhubaneswarCenter = "85.8245,20.2961";
 
-  const buildUrl = (filter: string, limit = 10) =>
-    `https://api.geoapify.com/v1/geocode/autocomplete` +
-    `?text=${encodeURIComponent(query)}` +
-    `&limit=${limit}` +
-    `&filter=${encodeURIComponent(filter)}` +
-    `&bias=proximity:${bhubaneswarCenter}` +
-    `&format=geojson` +
-    `&apiKey=${GEOAPIFY_API_KEY}`;
+//   const buildUrl = (filter: string, limit = 10) =>
+//     `https://api.geoapify.com/v1/geocode/autocomplete` +
+//     `?text=${encodeURIComponent(query)}` +
+//     `&limit=${limit}` +
+//     `&filter=${encodeURIComponent(filter)}` +
+//     `&bias=proximity:${bhubaneswarCenter}` +
+//     `&format=geojson` +
+//     `&apiKey=${GEOAPIFY_API_KEY}`;
 
-  const fetchPlaces = async (filter: string, limit = 10) => {
-    const response = await fetch(buildUrl(filter, limit));
-    if (!response.ok) return [];
+//   const fetchPlaces = async (filter: string, limit = 10) => {
+//     const response = await fetch(buildUrl(filter, limit));
+//     if (!response.ok) return [];
 
-    const data = await response.json();
-    return data?.features || [];
-  };
+//     const data = await response.json();
+//     return data?.features || [];
+//   };
 
-  const [bbsrResults, odishaResults, indiaResults] = await Promise.all([
-    fetchPlaces(`rect:${bhubaneswarBBox}`, 10),
-    fetchPlaces(`rect:${odishaBBox}`, 10),
-    fetchPlaces("countrycode:in", 10),
-  ]);
+//   const [bbsrResults, odishaResults, indiaResults] = await Promise.all([
+//     fetchPlaces(`rect:${bhubaneswarBBox}`, 10),
+//     fetchPlaces(`rect:${odishaBBox}`, 10),
+//     fetchPlaces("countrycode:in", 10),
+//   ]);
 
-  const merged = [...bbsrResults, ...odishaResults, ...indiaResults];
+//   const merged = [...bbsrResults, ...odishaResults, ...indiaResults];
 
-  const unique = new Map<string, any>();
+//   const unique = new Map<string, any>();
 
-  for (const feature of merged) {
-    const props = feature.properties || {};
-    const geometry = feature.geometry?.coordinates || [0, 0];
+//   for (const feature of merged) {
+//     const props = feature.properties || {};
+//     const geometry = feature.geometry?.coordinates || [0, 0];
 
-    const key =
-      props.place_id ||
-      props.formatted ||
-      `${props.name}-${geometry[0]}-${geometry[1]}`;
+//     const key =
+//       props.place_id ||
+//       props.formatted ||
+//       `${props.name}-${geometry[0]}-${geometry[1]}`;
 
-    if (!unique.has(key)) {
-      unique.set(key, feature);
-    }
-  }
+//     if (!unique.has(key)) {
+//       unique.set(key, feature);
+//     }
+//   }
 
-  return Array.from(unique.values())
-    .sort((a: any, b: any) => {
-      const aProps = a.properties || {};
-      const bProps = b.properties || {};
+//   return Array.from(unique.values())
+//     .sort((a: any, b: any) => {
+//       const aProps = a.properties || {};
+//       const bProps = b.properties || {};
 
-      const aScore = getPlacePriorityScore(aProps, query);
-      const bScore = getPlacePriorityScore(bProps, query);
+//       const aScore = getPlacePriorityScore(aProps, query);
+//       const bScore = getPlacePriorityScore(bProps, query);
 
-      return bScore - aScore;
-    })
-    .slice(0, 10)
-    .map((feature: any) => {
-      const props = feature.properties || {};
-      const geometry = feature.geometry?.coordinates || [0, 0];
+//       return bScore - aScore;
+//     })
+//     .slice(0, 10)
+//     .map((feature: any) => {
+//       const props = feature.properties || {};
+//       const geometry = feature.geometry?.coordinates || [0, 0];
 
-      const name = getMainText(props);
-      const address = props.formatted || getSecondaryText(props) || name;
+//       const name = getMainText(props);
+//       const address = props.formatted || getSecondaryText(props) || name;
 
-      const customPayload = {
-        provider: "geoapify",
-        name,
-        address,
-        latitude: geometry[1],
-        longitude: geometry[0],
-      };
+//       const customPayload = {
+//         provider: "geoapify",
+//         name,
+//         address,
+//         latitude: geometry[1],
+//         longitude: geometry[0],
+//       };
 
-      return {
-        place_id: buildGeoContext(customPayload),
-        description: address,
-        main_text: name,
-        secondary_text: getSecondaryText(props) || address,
-      };
-    });
-}
+//       return {
+//         place_id: buildGeoContext(customPayload),
+//         description: address,
+//         main_text: name,
+//         secondary_text: getSecondaryText(props) || address,
+//       };
+//     });
+// }
 
-function getPlacePriorityScore(props: any, query: string) {
-  let score = 0;
+// function getPlacePriorityScore(props: any, query: string) {
+//   let score = 0;
 
-  const q = query.toLowerCase();
-  const name = String(props.name || "").toLowerCase();
-  const formatted = String(props.formatted || "").toLowerCase();
-  const city = String(props.city || props.county || "").toLowerCase();
-  const state = String(props.state || "").toLowerCase();
+//   const q = query.toLowerCase();
+//   const name = String(props.name || "").toLowerCase();
+//   const formatted = String(props.formatted || "").toLowerCase();
+//   const city = String(props.city || props.county || "").toLowerCase();
+//   const state = String(props.state || "").toLowerCase();
 
-  if (name === q) score += 100;
-  if (name.startsWith(q)) score += 70;
-  if (formatted.includes(q)) score += 40;
+//   if (name === q) score += 100;
+//   if (name.startsWith(q)) score += 70;
+//   if (formatted.includes(q)) score += 40;
 
-  if (city.includes("bhubaneswar")) score += 35;
-  if (city.includes("cuttack")) score += 35;
-  if (state.includes("odisha")) score += 25;
+//   if (city.includes("bhubaneswar")) score += 35;
+//   if (city.includes("cuttack")) score += 35;
+//   if (state.includes("odisha")) score += 25;
 
-  return score;
-}
+//   return score;
+// }
 
-export async function geocodeAddress(address: string) {
-  assertGeoapifyKey();
+// export async function geocodeAddress(address: string) {
+//   assertGeoapifyKey();
 
-  const query = address.trim();
+//   const query = address.trim();
 
-  if (!query) {
-    throw new Error("Address string cannot be empty");
-  }
+//   if (!query) {
+//     throw new Error("Address string cannot be empty");
+//   }
 
-  const url =
-    `https://api.geoapify.com/v1/geocode/search` +
-    `?text=${encodeURIComponent(query)}` +
-    `&limit=1` +
-    `&filter=countrycode:in` +
-    `&bias=proximity:85.8245,20.2961` +
-    `&format=geojson` +
-    `&apiKey=${GEOAPIFY_API_KEY}`;
+//   const url =
+//     `https://api.geoapify.com/v1/geocode/search` +
+//     `?text=${encodeURIComponent(query)}` +
+//     `&limit=1` +
+//     `&filter=countrycode:in` +
+//     `&bias=proximity:85.8245,20.2961` +
+//     `&format=geojson` +
+//     `&apiKey=${GEOAPIFY_API_KEY}`;
 
-  const response = await fetch(url);
+//   const response = await fetch(url);
 
-  if (!response.ok) {
-    throw new Error("Geocoding request failed");
-  }
+//   if (!response.ok) {
+//     throw new Error("Geocoding request failed");
+//   }
 
-  const data = await response.json();
+//   const data = await response.json();
 
-  if (!data?.features?.length) {
-    throw new Error("No location found for this address");
-  }
+//   if (!data?.features?.length) {
+//     throw new Error("No location found for this address");
+//   }
 
-  const feature = data.features[0];
-  const props = feature.properties || {};
-  const geometry = feature.geometry?.coordinates || [0, 0];
+//   const feature = data.features[0];
+//   const props = feature.properties || {};
+//   const geometry = feature.geometry?.coordinates || [0, 0];
 
-  return {
-    latitude: Number(geometry[1]),
-    longitude: Number(geometry[0]),
-    formattedAddress: props.formatted || query,
-  };
-}
+//   return {
+//     latitude: Number(geometry[1]),
+//     longitude: Number(geometry[0]),
+//     formattedAddress: props.formatted || query,
+//   };
+// }
