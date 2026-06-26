@@ -95,7 +95,7 @@ export default function BookingDetailsScreen() {
   const queryClient = useQueryClient();
 
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, Platform.OS === "android" ? 24 : 16);
+  const bottomInset = Math.max(insets.bottom, Platform.OS === "android" ? 36 : 20);
   const bottomBarHeight = 128 + bottomInset;
 
   const [rating, setRating] = useState(5);
@@ -566,7 +566,9 @@ export default function BookingDetailsScreen() {
             </View>
           </View>
 
-          <View className="flex-row gap-3">
+          <View className="flex-row gap-3" style={{
+            marginBottom: Platform.OS === "android" ? 8 : 0,
+          }}>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleViewMap}
