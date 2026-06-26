@@ -37,7 +37,9 @@ console.log("MAPTILER KEY:", MAPTILER_KEY);
 
 function getMapTilerTileUrl(isDark: boolean) {
   const style = isDark ? "dataviz-dark" : "streets-v2";
-  return `https://api.maptiler.com/maps/${style}/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+  const url = `https://api.maptiler.com/maps/${style}/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+  console.log("MAPTILER URL:", url);
+  return url;
 }
 
 function mapApiRide(ride: any) {
