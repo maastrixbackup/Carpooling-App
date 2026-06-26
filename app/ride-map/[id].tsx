@@ -11,10 +11,11 @@ import {
   Navigation,
   ShieldCheck,
   Star,
-  Users,
+  Users
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+// import MapView from "react-native-maps";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -30,6 +31,13 @@ type RouteCacheValue = {
 };
 
 const routeCache = new Map<string, RouteCacheValue>();
+
+// const MAPTILER_KEY = process.env.EXPO_PUBLIC_MAPTILER_KEY;
+// console.log("MAPTILER KEY:", MAPTILER_KEY);
+
+// function getMapTilerTileUrl() {
+//   return `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+// }
 
 function mapApiRide(ride: any) {
   return {
@@ -173,6 +181,7 @@ export default function RideMapScreen() {
       const destination = `${dropCoordinate.latitude},${dropCoordinate.longitude}`;
 
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${apiKey}`;
+      console.log(url)
 
       const response = await fetch(url);
       const result = await response.json();
@@ -226,6 +235,22 @@ export default function RideMapScreen() {
 
     return () => clearTimeout(timer);
   }, [ride, routeCoords.length, fitRouteToScreen]);
+
+  useEffect(() => {
+    if (!mapRef.current || routeCoords.length < 2) return;
+
+    setTimeout(() => {
+      mapRef.current?.fitToCoordinates(routeCoords, {
+        edgePadding: {
+          top: 150,
+          right: 70,
+          bottom: 300,
+          left: 70,
+        },
+        animated: true,
+      });
+    }, 300);
+  }, [routeCoords]);
 
   useFocusEffect(
     useCallback(() => {
@@ -284,6 +309,9 @@ export default function RideMapScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
+
+
+
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -291,30 +319,37 @@ export default function RideMapScreen() {
         initialRegion={{
           latitude: pickupCoordinate.latitude,
           longitude: pickupCoordinate.longitude,
-          latitudeDelta: 0.18,
-          longitudeDelta: 0.18,
+          latitudeDelta: 0.04,
+          longitudeDelta: 0.04,
         }}
         customMapStyle={isDark ? darkMapStyle : []}
         showsUserLocation
-        showsMyLocationButton={false}
-        toolbarEnabled={false}
+        followsUserLocation={false}
+        showsCompass
+        showsBuildings
+        showsIndoors
         loadingEnabled
-        rotateEnabled={false}
+        loadingIndicatorColor={colors.primary}
+        loadingBackgroundColor={colors.bg}
+        toolbarEnabled={false}
+        rotateEnabled
+        pitchEnabled
+        moveOnMarkerPress={false}
+        showsScale={false}
       >
         {routeCoords.length > 0 && (
           <>
             <Polyline
               coordinates={routeCoords}
-              strokeColor="rgba(0,102,204,0.22)"
-              strokeWidth={10}
-              geodesic={false}
+              strokeColor="rgba(0,0,0,0.18)"
+              strokeWidth={11}
             />
 
+            {/* Main */}
             <Polyline
               coordinates={routeCoords}
               strokeColor={colors.primary}
               strokeWidth={5}
-              geodesic={false}
               lineCap="round"
               lineJoin="round"
             />
@@ -337,6 +372,8 @@ export default function RideMapScreen() {
           />
         </Marker>
       </MapView>
+
+
 
       {isRouteLoading && routeCoords.length === 0 && (
         <View className="absolute inset-0 items-center justify-center bg-black/10">
@@ -375,137 +412,138 @@ export default function RideMapScreen() {
       </SafeAreaView>
 
       <View
-  style={{
-    backgroundColor: colors.card,
-    borderColor: colors.border,
-    maxHeight: bottomSheetMaxHeight,
-    paddingBottom: bottomInset,
-  }}
-  className="absolute bottom-0 left-0 right-0 rounded-t-[34px] border px-5 pt-5"
->
-  <View className="mb-4 h-1 w-12 self-center rounded-full bg-slate-400/40" />
-
-  <ScrollView
-    showsVerticalScrollIndicator={false}
-    bounces={false}
-    contentContainerStyle={{
-      paddingBottom: 16,
-    }}
-  >
-    <View className="flex-row items-center justify-between">
-      <View
-        style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
-        className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
+        style={{
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+          maxHeight: bottomSheetMaxHeight,
+          paddingBottom: bottomInset,
+          marginBottom: Platform.OS === "android" ? 8 : 0,
+        }}
+        className="absolute bottom-0 left-0 right-0 rounded-t-[34px] border px-5 pt-5"
       >
-        <ShieldCheck size={14} color={colors.success} />
-        <Text style={{ color: colors.success }} className="text-xs font-bold">
-          Verified ride
-        </Text>
-      </View>
+        <View className="mb-4 h-1 w-12 self-center rounded-full bg-slate-400/40" />
 
-      <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1.5">
-        <Star size={14} color="#F59E0B" fill="#F59E0B" />
-        <Text style={{ color: colors.text }} className="text-xs font-bold">
-          {ride.rating.toFixed(1)}
-        </Text>
-      </View>
-    </View>
-
-    <View className="mt-4 flex-row items-start justify-between gap-3">
-      <View className="flex-1">
-        <Text
-          style={{ color: colors.text }}
-          className="text-xl font-extrabold"
-          numberOfLines={2}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={{
+            paddingBottom: 16,
+          }}
         >
-          {ride.from}
-          <Text style={{ color: colors.danger }}> → </Text>
-          {ride.to}
-        </Text>
+          <View className="flex-row items-center justify-between">
+            <View
+              style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
+              className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
+            >
+              <ShieldCheck size={14} color={colors.success} />
+              <Text style={{ color: colors.success }} className="text-xs font-bold">
+                Verified ride
+              </Text>
+            </View>
 
-        <Text
-          style={{ color: colors.muted }}
-          className="mt-2 text-sm font-semibold"
-          numberOfLines={1}
+            <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1.5">
+              <Star size={14} color="#F59E0B" fill="#F59E0B" />
+              <Text style={{ color: colors.text }} className="text-xs font-bold">
+                {ride.rating.toFixed(1)}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-4 flex-row items-start justify-between gap-3">
+            <View className="flex-1">
+              <Text
+                style={{ color: colors.text }}
+                className="text-xl font-extrabold"
+                numberOfLines={2}
+              >
+                {ride.from}
+                <Text style={{ color: colors.danger }}> → </Text>
+                {ride.to}
+              </Text>
+
+              <Text
+                style={{ color: colors.muted }}
+                className="mt-2 text-sm font-semibold"
+                numberOfLines={1}
+              >
+                {ride.driver} • {ride.car}
+              </Text>
+            </View>
+
+            <View
+              style={{ backgroundColor: colors.primarySoft }}
+              className="rounded-2xl px-4 py-2"
+            >
+              <Text style={{ color: colors.primary }} className="text-lg font-extrabold">
+                ₹{ride.price}
+              </Text>
+              <Text style={{ color: colors.muted }} className="text-[10px] font-bold">
+                per KM
+              </Text>
+            </View>
+          </View>
+
+          {routeFailed && (
+            <View
+              style={{ backgroundColor: colors.dangerSoft }}
+              className="mt-4 rounded-2xl px-4 py-3"
+            >
+              <Text style={{ color: colors.danger }} className="text-xs font-bold">
+                Road route is unavailable. Showing fallback route.
+              </Text>
+            </View>
+          )}
+
+          <View className="mt-5 flex-row gap-3">
+            <MiniInfo
+              icon={<Clock size={16} color={colors.primary} />}
+              label="Duration"
+              text={isRouteLoading ? "..." : durationText}
+              loading={isRouteLoading}
+            />
+
+            <MiniInfo
+              icon={<Navigation size={16} color={colors.primary} />}
+              label="Distance"
+              text={isRouteLoading ? "..." : distanceText}
+              loading={isRouteLoading}
+            />
+
+            <MiniInfo
+              icon={<Users size={16} color={colors.primary} />}
+              label="Seats"
+              text={`${ride.seats} left`}
+            />
+          </View>
+
+          <View style={{ backgroundColor: colors.input }} className="mt-5 rounded-3xl p-4">
+            <RoutePoint color={colors.primary} title={ride.pickup} subtitle="Pickup point" />
+
+            <View
+              style={{ backgroundColor: colors.border }}
+              className="ml-[7px] h-8 w-0.5"
+            />
+
+            <RoutePoint color={colors.success} title={ride.drop} subtitle="Drop point" />
+          </View>
+        </ScrollView>
+
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() =>
+            router.push({
+              pathname: "/ride/[id]",
+              params: { id: ride.id },
+            })
+          }
+          style={{ backgroundColor: colors.primary }}
+          className="mt-3 rounded-2xl py-4"
         >
-          {ride.driver} • {ride.car}
-        </Text>
+          <Text className="text-center text-base font-extrabold text-white pb-2">
+            Continue to Details
+          </Text>
+        </TouchableOpacity>
       </View>
-
-      <View
-        style={{ backgroundColor: colors.primarySoft }}
-        className="rounded-2xl px-4 py-2"
-      >
-        <Text style={{ color: colors.primary }} className="text-lg font-extrabold">
-          ₹{ride.price}
-        </Text>
-        <Text style={{ color: colors.muted }} className="text-[10px] font-bold">
-          per KM
-        </Text>
-      </View>
-    </View>
-
-    {routeFailed && (
-      <View
-        style={{ backgroundColor: colors.dangerSoft }}
-        className="mt-4 rounded-2xl px-4 py-3"
-      >
-        <Text style={{ color: colors.danger }} className="text-xs font-bold">
-          Road route is unavailable. Showing fallback route.
-        </Text>
-      </View>
-    )}
-
-    <View className="mt-5 flex-row gap-3">
-      <MiniInfo
-        icon={<Clock size={16} color={colors.primary} />}
-        label="Duration"
-        text={isRouteLoading ? "..." : durationText}
-        loading={isRouteLoading}
-      />
-
-      <MiniInfo
-        icon={<Navigation size={16} color={colors.primary} />}
-        label="Distance"
-        text={isRouteLoading ? "..." : distanceText}
-        loading={isRouteLoading}
-      />
-
-      <MiniInfo
-        icon={<Users size={16} color={colors.primary} />}
-        label="Seats"
-        text={`${ride.seats} left`}
-      />
-    </View>
-
-    <View style={{ backgroundColor: colors.input }} className="mt-5 rounded-3xl p-4">
-      <RoutePoint color={colors.primary} title={ride.pickup} subtitle="Pickup point" />
-
-      <View
-        style={{ backgroundColor: colors.border }}
-        className="ml-[7px] h-8 w-0.5"
-      />
-
-      <RoutePoint color={colors.success} title={ride.drop} subtitle="Drop point" />
-    </View>
-  </ScrollView>
-
-  <TouchableOpacity
-    activeOpacity={0.85}
-    onPress={() =>
-      router.push({
-        pathname: "/ride/[id]",
-        params: { id: ride.id },
-      })
-    }
-    style={{ backgroundColor: colors.primary }}
-    className="mt-3 rounded-2xl py-4"
-  >
-    <Text className="text-center text-base font-extrabold text-white pb-2">
-      Continue to Details
-    </Text>
-  </TouchableOpacity>
-</View>
     </View>
   );
 }

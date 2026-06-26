@@ -428,7 +428,7 @@ export default function PublishRideScreen() {
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingTop: Platform.OS === "android" ? 16 : 12,
-              paddingBottom: 190,
+              paddingBottom: 150,
             }}
           >
             <Header />
@@ -1168,7 +1168,7 @@ function BottomPublishBar({
         backgroundColor: colors.card,
         borderTopColor: colors.border,
       }}
-      className="absolute bottom-0 left-0 right-0 border-t px-5 pb-8 pt-4"
+      className="absolute bottom-0 left-0 right-0 border-t px-5 pt-4"
     >
       <View className="mb-3 flex-row items-center justify-between">
         <View className="flex-1">

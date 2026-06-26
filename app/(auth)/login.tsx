@@ -83,7 +83,7 @@ export default function LoginScreen() {
             contentContainerStyle={{
               paddingHorizontal: 22,
               paddingTop: Platform.OS === "android" ? 28 : 24,
-              paddingBottom: 50,
+              paddingBottom: Platform.OS === "android" ? 90 : 70,
               flexGrow: 1,
               justifyContent: "center",
             }}
@@ -138,6 +138,7 @@ export default function LoginScreen() {
                 secureTextEntry={secure}
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
+                blurOnSubmit
                 rightAction={
                   <TouchableOpacity
                     activeOpacity={0.8}
@@ -233,6 +234,7 @@ function AuthInput({
   rightAction,
   last,
   returnKeyType,
+  blurOnSubmit,
   onSubmitEditing,
 }: {
   icon: React.ReactNode;
@@ -246,6 +248,7 @@ function AuthInput({
   rightAction?: React.ReactNode;
   last?: boolean;
   returnKeyType?: "done" | "next" | "go" | "search" | "send";
+  blurOnSubmit?: boolean;
   onSubmitEditing?: () => void;
 }) {
   const { colors } = useAppTheme();
@@ -278,6 +281,7 @@ function AuthInput({
           onSubmitEditing={onSubmitEditing}
           style={{ color: colors.text }}
           className="flex-1 text-base font-semibold"
+          blurOnSubmit={blurOnSubmit}
         />
 
         {rightAction}

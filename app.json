@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Pool Share",
+    "name": "PoolShare",
     "slug": "pool-sharing",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -53,14 +53,14 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/notification-icon.png",
+          "icon": "./assets/images/ic_stat_icons8_car_64_1.png",
           "color": "#ffffff"
         }
       ],
       [
         "react-native-maps",
         {
-          "androidGoogleMapsApiKey": "AIzaSyA6TPZIQC9LeCTINXF2wl5imoDwXFXMB2Y"
+          "androidGoogleMapsApiKey": "AIzaSyCUXqyqz3g5znIwsuaGP6qeGPkNxK5ZChg"
         }
       ],
       "expo-secure-store",

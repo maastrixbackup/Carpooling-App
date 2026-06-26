@@ -389,6 +389,7 @@ export default function RideDetailsScreen() {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
             paddingBottom: Math.max(insets.bottom, 18),
+             marginBottom: Platform.OS === "android" ? 8 : 0,
           }}
           className="absolute bottom-0 left-0 right-0 border-t px-5 pt-4"
         >
