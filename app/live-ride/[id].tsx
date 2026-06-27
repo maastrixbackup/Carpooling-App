@@ -4,30 +4,40 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
-    ArrowLeft,
-    Clock,
-    LocateFixed,
-    MapPin,
-    Navigation,
-    Radio,
-    ShieldCheck
+  ArrowLeft,
+  Car,
+  Clock,
+  LocateFixed,
+  MapPin,
+  Navigation,
+  Radio,
+  ShieldCheck,
 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Platform,
-    Text,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Platform,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
 } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, {
+  AnimatedRegion,
+  Marker,
+  Polyline,
+  PROVIDER_GOOGLE,
+} from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type LatLng = {
   latitude: number;
   longitude: number;
 };
+
+const ANIMATION_DURATION = 900;
 
 export default function LiveRideScreen() {
   const { colors, isDark } = useAppTheme();
@@ -36,7 +46,21 @@ export default function LiveRideScreen() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
 
-  const bottomCardHeight = Math.min(height * 0.33, 280);
+  const bottomCardHeight = Math.min(height * 0.34, 300);
+  const [currentHeading, setCurrentHeading] = useState(0);
+
+  const animatedDriverCoordinate = useRef(
+    new AnimatedRegion({
+      latitude: 0,
+      longitude: 0,
+      latitudeDelta: 0,
+      longitudeDelta: 0,
+    }),
+  ).current;
+
+  const headingAnim = useRef(new Animated.Value(0)).current;
+  const hasInitializedDriver = useRef(false);
+  const hasAutoFitted = useRef(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["live-ride", id],
@@ -49,7 +73,6 @@ export default function LiveRideScreen() {
 
   const pickupCoordinate: LatLng | null = useMemo(() => {
     if (!ride?.source_lat || !ride?.source_lng) return null;
-
     return {
       latitude: Number(ride.source_lat),
       longitude: Number(ride.source_lng),
@@ -58,7 +81,6 @@ export default function LiveRideScreen() {
 
   const dropCoordinate: LatLng | null = useMemo(() => {
     if (!ride?.destination_lat || !ride?.destination_lng) return null;
-
     return {
       latitude: Number(ride.destination_lat),
       longitude: Number(ride.destination_lng),
@@ -66,14 +88,8 @@ export default function LiveRideScreen() {
   }, [ride]);
 
   const routeCoords = useMemo(() => {
-    if (ride?.polyline) {
-      return decodePolyline(ride.polyline);
-    }
-
-    if (pickupCoordinate && dropCoordinate) {
-      return [pickupCoordinate, dropCoordinate];
-    }
-
+    if (ride?.polyline) return decodePolyline(ride.polyline);
+    if (pickupCoordinate && dropCoordinate) return [pickupCoordinate, dropCoordinate];
     return [];
   }, [ride?.polyline, pickupCoordinate, dropCoordinate]);
 
@@ -87,9 +103,9 @@ export default function LiveRideScreen() {
 
   const driverCoordinate: LatLng | null = liveLocation
     ? {
-        latitude: Number(liveLocation.latitude),
-        longitude: Number(liveLocation.longitude),
-      }
+      latitude: Number(liveLocation.latitude),
+      longitude: Number(liveLocation.longitude),
+    }
     : null;
 
   const fitMap = useCallback(() => {
@@ -104,7 +120,7 @@ export default function LiveRideScreen() {
       edgePadding: {
         top: 140,
         right: 70,
-        bottom: bottomCardHeight + Math.max(insets.bottom, 16) + 60,
+        bottom: bottomCardHeight + Math.max(insets.bottom, 16) + 70,
         left: 70,
       },
       animated: true,
@@ -112,25 +128,76 @@ export default function LiveRideScreen() {
   }, [routeCoords, driverCoordinate, bottomCardHeight, insets.bottom]);
 
   useEffect(() => {
-    const timer = setTimeout(fitMap, 500);
+    if (!routeCoords.length || hasAutoFitted.current) return;
+
+    const timer = setTimeout(() => {
+      fitMap();
+      hasAutoFitted.current = true;
+    }, 500);
+
     return () => clearTimeout(timer);
-  }, [fitMap]);
+  }, [fitMap, routeCoords.length]);
 
   useEffect(() => {
     if (!driverCoordinate) return;
 
+    const nextHeading = Number(liveLocation?.heading || currentHeading || 0);
+
+    if (!hasInitializedDriver.current) {
+      animatedDriverCoordinate.setValue({
+        latitude: driverCoordinate.latitude,
+        longitude: driverCoordinate.longitude,
+        latitudeDelta: 0,
+        longitudeDelta: 0,
+      });
+
+      headingAnim.setValue(nextHeading);
+      setCurrentHeading(nextHeading);
+      hasInitializedDriver.current = true;
+
+      mapRef.current?.animateCamera(
+        {
+          center: driverCoordinate,
+          zoom: 15,
+          heading: nextHeading,
+        },
+        { duration: 700 },
+      );
+
+      return;
+    }
+
+    animatedDriverCoordinate
+      .timing({
+        latitude: driverCoordinate.latitude,
+        longitude: driverCoordinate.longitude,
+        latitudeDelta: 0,
+        longitudeDelta: 0,
+        duration: ANIMATION_DURATION,
+        useNativeDriver: false,
+      } as any)
+      .start();
+
+    Animated.timing(headingAnim, {
+      toValue: nextHeading,
+      duration: ANIMATION_DURATION,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    setCurrentHeading(nextHeading);
+
     mapRef.current?.animateCamera(
       {
         center: driverCoordinate,
-        zoom: 14,
+        zoom: 15,
+        heading: nextHeading,
       },
-      { duration: 700 },
+      { duration: ANIMATION_DURATION },
     );
-  }, [driverCoordinate?.latitude, driverCoordinate?.longitude]);
+  }, [driverCoordinate?.latitude, driverCoordinate?.longitude, liveLocation?.heading]);
 
-  if (isLoading) {
-    return <CenterState title="Loading live ride..." />;
-  }
+  if (isLoading) return <CenterState title="Loading live ride..." />;
 
   if (isError || !ride || !pickupCoordinate || !dropCoordinate) {
     return (
@@ -142,6 +209,11 @@ export default function LiveRideScreen() {
       />
     );
   }
+
+  const headingRotation = headingAnim.interpolate({
+    inputRange: [0, 360],
+    outputRange: ["0deg", "360deg"],
+  });
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -173,9 +245,7 @@ export default function LiveRideScreen() {
           <>
             <Polyline
               coordinates={routeCoords}
-              strokeColor={
-                isDark ? "rgba(255,255,255,0.22)" : "rgba(15,23,42,0.16)"
-              }
+              strokeColor={isDark ? "rgba(255,255,255,0.22)" : "rgba(15,23,42,0.16)"}
               strokeWidth={12}
               lineCap="round"
               lineJoin="round"
@@ -185,6 +255,14 @@ export default function LiveRideScreen() {
               coordinates={routeCoords}
               strokeColor={isDark ? "#CBD5E1" : "#64748B"}
               strokeWidth={6}
+              lineCap="round"
+              lineJoin="round"
+            />
+
+            <Polyline
+              coordinates={driverCoordinate ? trimRouteFromDriver(routeCoords, driverCoordinate) : routeCoords}
+              strokeColor={colors.primary}
+              strokeWidth={4}
               lineCap="round"
               lineJoin="round"
             />
@@ -208,14 +286,13 @@ export default function LiveRideScreen() {
         </Marker>
 
         {driverCoordinate && (
-          <Marker
-            coordinate={driverCoordinate}
+          <Marker.Animated
+            coordinate={animatedDriverCoordinate as any}
             anchor={{ x: 0.5, y: 0.5 }}
-            rotation={Number(liveLocation?.heading || 0)}
             flat
           >
-            <DriverMarker />
-          </Marker>
+            <DriverMarker rotation={headingRotation} />
+          </Marker.Animated>
         )}
       </MapView>
 
@@ -251,22 +328,20 @@ export default function LiveRideScreen() {
       >
         <View className="mb-4 h-1 w-12 self-center rounded-full bg-slate-400/40" />
 
-        <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between gap-4">
           <View className="flex-1">
-            <Text style={{ color: colors.text }} className="text-xl font-extrabold">
+            <Text style={{ color: colors.text }} className="text-xl font-extrabold" numberOfLines={2}>
               {shortAddress(ride.source_address)} → {shortAddress(ride.destination_address)}
             </Text>
 
             <Text style={{ color: colors.muted }} className="mt-1 text-sm font-semibold">
-              {ride.driver_name || "Driver"} • {ride.status}
+              {ride.driver_name || "Driver"} • {capitalize(ride.status)}
             </Text>
           </View>
 
           <View
             style={{
-              backgroundColor: isRideOngoing
-                ? "rgba(34,197,94,0.14)"
-                : colors.primarySoft,
+              backgroundColor: isRideOngoing ? "rgba(34,197,94,0.14)" : colors.primarySoft,
             }}
             className="rounded-full px-3 py-2"
           >
@@ -300,9 +375,7 @@ export default function LiveRideScreen() {
         </View>
 
         <View
-          style={{
-            backgroundColor: error ? colors.dangerSoft : colors.input,
-          }}
+          style={{ backgroundColor: error ? colors.dangerSoft : colors.input }}
           className="mt-4 rounded-2xl px-4 py-3"
         >
           <Text
@@ -324,11 +397,32 @@ export default function LiveRideScreen() {
                 : !isRideOngoing
                   ? "Live tracking will begin once the driver starts the ride."
                   : driverCoordinate
-                    ? "Driver location is updating live."
+                    ? "Driver is moving live on the map."
                     : "Waiting for driver location..."}
           </Text>
         </View>
       </View>
+    </View>
+  );
+}
+
+function DriverMarker({ rotation }: { rotation: Animated.AnimatedInterpolation<string> }) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View className="items-center justify-center">
+      <View className="absolute h-20 w-20 rounded-full bg-blue-500/10" />
+      <View className="absolute h-14 w-14 rounded-full bg-blue-500/20" />
+
+      <Animated.View
+        style={{
+          transform: [{ rotate: rotation }],
+          backgroundColor: colors.primary,
+        }}
+        className="h-12 w-12 items-center justify-center rounded-full border-4 border-white"
+      >
+        <Car size={22} color="#FFFFFF" />
+      </Animated.View>
     </View>
   );
 }
@@ -353,22 +447,6 @@ function RouteMarker({
 
       <View className="-mt-1 rounded-full bg-black/80 px-2 py-1">
         <Text className="text-[10px] font-bold text-white">{label}</Text>
-      </View>
-    </View>
-  );
-}
-
-function DriverMarker() {
-  const { colors } = useAppTheme();
-
-  return (
-    <View className="items-center justify-center">
-      <View className="absolute h-16 w-16 rounded-full bg-blue-500/15" />
-      <View
-        style={{ backgroundColor: colors.primary }}
-        className="h-12 w-12 items-center justify-center rounded-full border-4 border-white"
-      >
-        <Navigation size={21} color="#FFFFFF" />
       </View>
     </View>
   );
@@ -549,3 +627,41 @@ const premiumDarkMapStyle = [
     stylers: [{ color: "#0F172A" }],
   },
 ];
+
+function capitalize(value?: string) {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getDistanceMeters(a: LatLng, b: LatLng) {
+  const R = 6371000;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLng = ((b.longitude - a.longitude) * Math.PI) / 180;
+
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1) * Math.cos(lat2) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  return 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function trimRouteFromDriver(route: LatLng[], driver: LatLng) {
+  if (!route.length) return [];
+
+  let nearestIndex = 0;
+  let nearestDistance = Number.MAX_SAFE_INTEGER;
+
+  route.forEach((point, index) => {
+    const distance = getDistanceMeters(point, driver);
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = index;
+    }
+  });
+
+  return [driver, ...route.slice(nearestIndex)];
+}
