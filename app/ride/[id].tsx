@@ -76,6 +76,8 @@ export default function RideDetailsScreen() {
     enabled: !!id,
   });
 
+  console.log(data)
+
   const ride = data?.data?.ride ? mapRide(data.data.ride) : null;
 
   const totalPrice = useMemo(() => {

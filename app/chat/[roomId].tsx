@@ -1,3 +1,4 @@
+import { getAuthenticatedSocket } from "@/lib/socket";
 import {
   getChatMessagesApi,
   markChatReadApi,
@@ -20,10 +21,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { io, Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 import { toast } from "sonner-native";
 
-const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL;
 
 type ChatMessage = {
   id: string | number;
@@ -123,59 +123,83 @@ export default function ChatRoomScreen() {
   }, [data]);
 
   useEffect(() => {
-    if (!roomId || !SOCKET_URL) return;
+    if (!roomId) return;
 
-    markChatReadApi(String(roomId)).catch(() => {});
+    let mounted = true;
+    let activeSocket: Socket | null = null;
 
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket"],
-      reconnection: true,
-      reconnectionAttempts: 20,
-      reconnectionDelay: 1000,
-      forceNew: true,
-    });
+    const setupSocket = async () => {
+      try {
+        markChatReadApi(String(roomId)).catch(() => { });
 
-    socketRef.current = socket;
+        const socket = await getAuthenticatedSocket();
 
-    socket.on("connect", () => {
-      setSocketConnected(true);
-      socket.emit("join_room", String(roomId));
-    });
+        if (!mounted) return;
 
-    socket.on("disconnect", () => {
-      setSocketConnected(false);
-    });
+        activeSocket = socket;
+        socketRef.current = socket;
 
-    socket.on("connect_error", () => {
-      setSocketConnected(false);
-    });
+        const handleConnect = () => {
+          setSocketConnected(true);
+          socket.emit("join_room", String(roomId));
+        };
 
-    socket.on("new_message", (newMessage: ChatMessage) => {
-      if (String(newMessage.room_id) !== String(roomId)) return;
+        const handleDisconnect = () => {
+          setSocketConnected(false);
+        };
 
-      setMessages((prev) => {
-        const withoutMatchingTemp = prev.filter((item) => {
-          const isTemp = String(item.id).startsWith("temp-");
-          const sameText = item.message === newMessage.message;
-          const sameSender =
-            String(item.sender_id) === String(newMessage.sender_id);
+        const handleConnectError = () => {
+          setSocketConnected(false);
+        };
 
-          return !(isTemp && sameText && sameSender);
-        });
+        const handleNewMessage = (newMessage: ChatMessage) => {
+          if (String(newMessage.room_id) !== String(roomId)) return;
 
-        return uniqueMessages([...withoutMatchingTemp, newMessage]);
-      });
+          setMessages((prev) => {
+            const withoutMatchingTemp = prev.filter((item) => {
+              const isTemp = String(item.id).startsWith("temp-");
+              const sameText = item.message === newMessage.message;
+              const sameSender =
+                String(item.sender_id) === String(newMessage.sender_id);
 
-      markChatReadApi(String(roomId)).catch(() => {});
-    });
+              return !(isTemp && sameText && sameSender);
+            });
+
+            return uniqueMessages([...withoutMatchingTemp, newMessage]);
+          });
+
+          markChatReadApi(String(roomId)).catch(() => { });
+        };
+
+        socket.off("connect", handleConnect);
+        socket.off("disconnect", handleDisconnect);
+        socket.off("connect_error", handleConnectError);
+        socket.off("new_message", handleNewMessage);
+
+        socket.on("connect", handleConnect);
+        socket.on("disconnect", handleDisconnect);
+        socket.on("connect_error", handleConnectError);
+        socket.on("new_message", handleNewMessage);
+
+        if (socket.connected) {
+          handleConnect();
+        }
+      } catch (error) {
+        setSocketConnected(false);
+        toast.error("Unable to connect chat.");
+      }
+    };
+
+    setupSocket();
 
     return () => {
-      socket.emit("leave_room", String(roomId));
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("connect_error");
-      socket.off("new_message");
-      socket.disconnect();
+      mounted = false;
+
+      if (activeSocket) {
+        activeSocket.emit("leave_room", String(roomId));
+        activeSocket.off("new_message");
+      }
+
       socketRef.current = null;
     };
   }, [roomId]);
