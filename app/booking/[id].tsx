@@ -6,6 +6,7 @@ import {
 } from "@/services/booking.service";
 import { getRoomByBookingApi } from "@/services/chat.service";
 import { createReviewApi } from "@/services/review.service";
+import { getRideByIdApi } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
@@ -123,6 +124,19 @@ export default function BookingDetailsScreen() {
     ? mapBookingToDetails(data.data.booking)
     : null;
 
+  const { data: rideData } = useQuery({
+    queryKey: ["booking-live-ride-status", booking?.rideId],
+    queryFn: () => getRideByIdApi(booking!.rideId),
+    enabled: !!booking?.rideId,
+    refetchInterval: 10000,
+  });
+
+  const rideStatus = rideData?.data?.ride?.status;
+  // console.log(booking?.status)
+  const canTrackLiveRide = rideStatus === "ongoing";
+
+
+
   const cancelMutation = useMutation({
     mutationFn: cancelBookingApi,
     onSuccess: async () => {
@@ -196,6 +210,18 @@ export default function BookingDetailsScreen() {
 
     router.push({
       pathname: "/ride-map/[id]" as any,
+      params: { id: booking.rideId },
+    });
+  };
+
+  const handleOpenLiveRide = () => {
+    if (!booking) return;
+    if (!canTrackLiveRide) {
+      toast.info("Live tracking will be available once the driver starts the ride.");
+      return;
+    }
+    router.push({
+      pathname: "/live-ride/[id]" as any,
       params: { id: booking.rideId },
     });
   };
@@ -317,7 +343,7 @@ export default function BookingDetailsScreen() {
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={handleViewMap}
+              onPress={canTrackLiveRide ? handleOpenLiveRide : handleViewMap}
               style={{ backgroundColor: colors.primarySoft }}
               className="mt-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
             >
@@ -326,7 +352,7 @@ export default function BookingDetailsScreen() {
                 style={{ color: colors.primary }}
                 className="font-extrabold"
               >
-                View Route Map
+                {canTrackLiveRide ? "Track Live Ride" : "View Route Map"}
               </Text>
             </TouchableOpacity>
           </SectionCard>
@@ -571,7 +597,7 @@ export default function BookingDetailsScreen() {
           }}>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={handleViewMap}
+              onPress={canTrackLiveRide ? handleOpenLiveRide : handleViewMap}
               style={{ backgroundColor: colors.primarySoft }}
               className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
             >
@@ -580,7 +606,7 @@ export default function BookingDetailsScreen() {
                 style={{ color: colors.primary }}
                 className="font-extrabold"
               >
-                Map
+               {canTrackLiveRide ? "Track Live" : "Map"}
               </Text>
             </TouchableOpacity>
 

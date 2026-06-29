@@ -1,4 +1,6 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
+import SlideActionButton from "@/components/SlideActionButton";
+import { useDriverLocationPublisher } from "@/hooks/useDriverLocationPublisher";
 import { respondToBookingApi } from "@/services/booking.service";
 import { getRoomByBookingApi } from "@/services/chat.service";
 import {
@@ -119,6 +121,16 @@ export default function DriverRideDetailsScreen() {
     const bookedSeats = bookings.reduce((sum, item) => sum + item.seats, 0);
     const totalEarning = bookings.reduce((sum, item) => sum + item.totalPrice, 0);
 
+    const isRideOngoing = ride?.status === "ongoing";
+    const {
+        isPublishing,
+        error: trackingError,
+        stopPublishing,
+    } = useDriverLocationPublisher({
+        rideId: ride?.id,
+        enabled: isRideOngoing,
+    });
+
     const startMutation = useMutation({
         mutationFn: startRideApi,
         onSuccess: async () => {
@@ -162,6 +174,7 @@ export default function DriverRideDetailsScreen() {
     const completeMutation = useMutation({
         mutationFn: completeRideApi,
         onSuccess: async () => {
+            await stopPublishing();
             toast.success("Ride completed successfully.");
             await queryClient.invalidateQueries({ queryKey: ["driver-ride-details", id] });
             await queryClient.invalidateQueries({ queryKey: ["my-rides"] });
@@ -239,6 +252,7 @@ export default function DriverRideDetailsScreen() {
         startMutation.mutate(ride.id);
     };
 
+
     const handleCompleteRide = async () => {
         if (!ride) return;
 
@@ -313,6 +327,19 @@ export default function DriverRideDetailsScreen() {
         if (!ride) return;
         router.push({
             pathname: "/ride-map/[id]" as any,
+            params: { id: ride.id },
+        });
+    };
+
+    const handleOpenLiveRide = () => {
+        if (!ride) return;
+        if (ride.status !== "ongoing") {
+            toast.info("Live tracking is available after starting the ride.");
+            return;
+        }
+
+        router.push({
+            pathname: "/live-ride/[id]" as any,
             params: { id: ride.id },
         });
     };
@@ -403,6 +430,34 @@ export default function DriverRideDetailsScreen() {
                         </View>
                     </View>
 
+                    {ride.status === "ongoing" && (
+                        <View
+                            style={{
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                ...cardShadow,
+                            }}
+                            className="mt-5 rounded-[24px] border p-4"
+                        >
+                            <Text style={{ color: colors.text }} className="font-extrabold">
+                                Live Tracking
+                            </Text>
+
+                            <Text
+                                style={{
+                                    color: trackingError ? colors.danger : colors.success,
+                                }}
+                                className="mt-1 text-xs font-bold"
+                            >
+                                {trackingError
+                                    ? trackingError
+                                    : isPublishing
+                                        ? "Live location is visible to accepted passengers."
+                                        : "Preparing secure live tracking..."}
+                            </Text>
+                        </View>
+                    )}
+
                     <View className="mt-5 flex-row gap-3">
                         <MiniStat icon={<Ticket size={17} color={colors.primary} />} label="Bookings" value={`${bookings.length}`} />
                         <MiniStat icon={<Users size={17} color={colors.success} />} label="Available" value={`${ride.availableSeats}/${ride.totalSeats}`} />
@@ -433,7 +488,11 @@ export default function DriverRideDetailsScreen() {
                     </View>
 
                     {activeTab === "overview" ? (
-                        <OverviewTab ride={ride} onViewMap={handleViewMap} />
+                        <OverviewTab
+                            ride={ride}
+                            onViewMap={handleViewMap}
+                            onOpenLiveRide={handleOpenLiveRide}
+                        />
                     ) : (
                         <BookingsTab
                             bookings={bookings}
@@ -449,7 +508,7 @@ export default function DriverRideDetailsScreen() {
                     style={{
                         backgroundColor: colors.card,
                         borderTopColor: colors.border,
-                        paddingBottom: Math.max(insets.bottom, 16),
+                        paddingBottom: Math.max(insets.bottom, 24),
                         ...cardShadow,
                     }}
                     className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t px-5 pt-4"
@@ -494,25 +553,15 @@ export default function DriverRideDetailsScreen() {
                         )}
 
                         {canComplete && (
-                            <TouchableOpacity
-                                activeOpacity={0.85}
-                                onPress={handleCompleteRide}
-                                disabled={isActionLoading}
-                                style={{
-                                    backgroundColor: colors.success,
-                                    opacity: isActionLoading ? 0.7 : 1,
-                                }}
-                                className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
-                            >
-                                {completeMutation.isPending ? (
-                                    <ActivityIndicator color="#FFFFFF" />
-                                ) : (
-                                    <>
-                                        <Ticket size={18} color="#FFFFFF" />
-                                        <Text className="font-extrabold text-white">Complete</Text>
-                                    </>
-                                )}
-                            </TouchableOpacity>
+                            <View className="flex-1">
+                                <SlideActionButton
+                                    label="Slide to Complete"
+                                    completedLabel="Completing..."
+                                    loading={completeMutation.isPending}
+                                    disabled={isActionLoading}
+                                    onComplete={handleCompleteRide}
+                                />
+                            </View>
                         )}
 
                         {canCancel && (
@@ -556,7 +605,15 @@ export default function DriverRideDetailsScreen() {
     );
 }
 
-function OverviewTab({ ride, onViewMap }: { ride: DriverRideUi; onViewMap: () => void }) {
+function OverviewTab({
+    ride,
+    onViewMap,
+    onOpenLiveRide,
+}: {
+    ride: DriverRideUi;
+    onViewMap: () => void;
+    onOpenLiveRide: () => void;
+}) {
     const { colors } = useAppTheme();
 
     return (
@@ -576,16 +633,44 @@ function OverviewTab({ ride, onViewMap }: { ride: DriverRideUi; onViewMap: () =>
 
                 <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={onViewMap}
-                    style={{ backgroundColor: colors.primarySoft }}
+                    onPress={
+                        ride.status === "ongoing"
+                            ? onOpenLiveRide
+                            : onViewMap
+                    }
+                    style={{
+                        backgroundColor:
+                            ride.status === "ongoing"
+                                ? colors.primarySoft
+                                : colors.primarySoft,
+                    }}
                     className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
                 >
-                    <Navigation size={18} color={colors.primary} />
-                    <Text style={{ color: colors.primary }} className="font-extrabold">
-                        View Route Map
+                    <Navigation
+                        size={18}
+                        color={
+                            ride.status === "ongoing"
+                                ? "#FFFFFF"
+                                : colors.primary
+                        }
+                    />
+
+                    <Text
+                        style={{
+                            color:
+                                ride.status === "ongoing"
+                                    ? "#FFFFFF"
+                                    : colors.primary,
+                        }}
+                        className="font-extrabold"
+                    >
+                        {ride.status === "ongoing"
+                            ? "Open Live Tracking"
+                            : "View Route Map"}
                     </Text>
                 </TouchableOpacity>
             </SectionCard>
+
 
             <SectionCard title="Ride Settings">
                 <View className="flex-row flex-wrap gap-2">
