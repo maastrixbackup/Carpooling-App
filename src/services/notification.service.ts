@@ -26,3 +26,34 @@ export async function deactivatePushTokenApi(payload: {
     body: JSON.stringify(payload),
   });
 }
+
+export type NotificationSettings = {
+  ride_alerts: boolean;
+  booking_alerts: boolean;
+  chat_alerts: boolean;
+  safety_alerts: boolean;
+  promotional_alerts: boolean;
+  push_notifications: boolean;
+  email_notifications: boolean;
+};
+
+export async function getNotificationSettingsApi() {
+  return apiClient("/notifications/settings", {
+    method: "GET",
+  });
+}
+
+export async function updateNotificationSettingsApi(
+  payload: Partial<NotificationSettings>,
+) {
+  return apiClient("/notifications/settings", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getMyNotificationsApi() {
+  return apiClient("/notifications", {
+    method: "GET",
+  });
+}

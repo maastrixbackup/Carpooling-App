@@ -1,4 +1,10 @@
+import {
+  getMyNotificationsApi,
+  getNotificationSettingsApi,
+  updateNotificationSettingsApi,
+} from "@/services/notification.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
   AlertTriangle,
@@ -8,50 +14,93 @@ import {
   Car,
   CheckCircle2,
   Clock,
+  MessageCircle,
   ShieldCheck,
   Ticket,
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
-import { ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
+import { useMemo } from "react";
+import { ActivityIndicator, ScrollView, Switch, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const alerts = [
-  {
-    id: "1",
-    type: "booking",
-    title: "Booking confirmed",
-    message: "Your seat from Bhubaneswar to Cuttack is confirmed.",
-    time: "2 min ago",
-  },
-  {
-    id: "2",
-    type: "ride",
-    title: "New ride available",
-    message: "A nearby ride to Puri is available tomorrow morning.",
-    time: "18 min ago",
-  },
-  {
-    id: "3",
-    type: "safety",
-    title: "Safety reminder",
-    message: "Verify driver and vehicle details before starting your trip.",
-    time: "1 hour ago",
-  },
-];
+import { toast } from "sonner-native";
 
 export default function NotificationsScreen() {
   const { colors } = useAppTheme();
+  const queryClient = useQueryClient();
 
-  const [rideAlerts, setRideAlerts] = useState(true);
-  const [bookingAlerts, setBookingAlerts] = useState(true);
-  const [safetyAlerts, setSafetyAlerts] = useState(true);
-  const [promoAlerts, setPromoAlerts] = useState(false);
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+    queryKey: ["notification-settings"],
+    queryFn: getNotificationSettingsApi,
+  });
 
-  const enabledCount = useMemo(
-    () => [rideAlerts, bookingAlerts, safetyAlerts, promoAlerts].filter(Boolean).length,
-    [rideAlerts, bookingAlerts, safetyAlerts, promoAlerts]
-  );
+  const { data: notificationsData, isLoading: notificationsLoading } = useQuery({
+    queryKey: ["my-notifications"],
+    queryFn: getMyNotificationsApi,
+  });
 
+  const settings = settingsData?.data?.settings;
+  const notifications = notificationsData?.data?.notifications || [];
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: updateNotificationSettingsApi,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["notification-settings"],
+      });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Unable to update notification setting.");
+    },
+  });
+
+  const handleToggle = (
+    key:
+      | "ride_alerts"
+      | "booking_alerts"
+      | "chat_alerts"
+      | "safety_alerts"
+      | "promotional_alerts",
+    value: boolean,
+  ) => {
+    if (!settings) return;
+
+    queryClient.setQueryData(["notification-settings"], (old: any) => ({
+      ...old,
+      data: {
+        ...old?.data,
+        settings: {
+          ...old?.data?.settings,
+          [key]: value,
+        },
+      },
+    }));
+
+    updateSettingsMutation.mutate({
+      [key]: value,
+    });
+  };
+
+  const enabledCount = useMemo(() => {
+    if (!settings) return 0;
+
+    return [
+      settings.ride_alerts,
+      settings.booking_alerts,
+      settings.chat_alerts,
+      settings.safety_alerts,
+      settings.promotional_alerts,
+    ].filter(Boolean).length;
+  }, [settings]);
+
+  if (settingsLoading) {
+    return (
+      <View
+        style={{ flex: 1, backgroundColor: colors.bg }}
+        className="items-center justify-center"
+      >
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
@@ -91,44 +140,67 @@ export default function NotificationsScreen() {
               icon={<Car size={20} color={colors.primary} />}
               title="Ride Alerts"
               subtitle="New rides and route matches"
-              value={rideAlerts}
-              onChange={setRideAlerts}
+              value={Boolean(settings?.ride_alerts)}
+              onChange={(value) => handleToggle("ride_alerts", value)}
             />
 
             <AlertToggle
               icon={<Ticket size={20} color={colors.primary} />}
               title="Booking Alerts"
               subtitle="Confirmations, cancellations, and trip updates"
-              value={bookingAlerts}
-              onChange={setBookingAlerts}
+              value={Boolean(settings?.booking_alerts)}
+              onChange={(value) => handleToggle("booking_alerts", value)}
+            />
+
+            <AlertToggle
+              icon={<MessageCircle size={20} color={colors.primary} />}
+              title="Chat Alerts"
+              subtitle="Messages from drivers and passengers"
+              value={Boolean(settings?.chat_alerts)}
+              onChange={(value) => handleToggle("chat_alerts", value)}
             />
 
             <AlertToggle
               icon={<ShieldCheck size={20} color={colors.success} />}
               title="Safety Alerts"
               subtitle="Important travel and verification reminders"
-              value={safetyAlerts}
-              onChange={setSafetyAlerts}
+              value={Boolean(settings?.safety_alerts)}
+              onChange={(value) => handleToggle("safety_alerts", value)}
             />
 
             <AlertToggle
               icon={<AlertTriangle size={20} color="#F59E0B" />}
               title="Offers & Promotions"
               subtitle="Discounts, campaigns, and special offers"
-              value={promoAlerts}
-              onChange={setPromoAlerts}
+              value={Boolean(settings?.promotional_alerts)}
+              onChange={(value) => handleToggle("promotional_alerts", value)}
               last
             />
           </Section>
 
           <Section title="Recent Alerts">
-            {alerts.map((alert, index) => (
-              <NotificationCard
-                key={alert.id}
-                alert={alert}
-                last={index === alerts.length - 1}
-              />
-            ))}
+            {notificationsLoading ? (
+              <View className="py-8">
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : notifications.length ? (
+              notifications.map((alert: any, index: number) => (
+                <NotificationCard
+                  key={alert.id}
+                  alert={{
+                    type: alert.type,
+                    title: alert.title,
+                    message: alert.message,
+                    time: formatTimeAgo(alert.created_at),
+                  }}
+                  last={index === notifications.length - 1}
+                />
+              ))
+            ) : (
+              <Text style={{ color: colors.muted }} className="px-4 py-6 text-center text-sm">
+                No notifications yet.
+              </Text>
+            )}
           </Section>
         </ScrollView>
       </SafeAreaView>
@@ -300,4 +372,20 @@ function NotificationCard({
       </View>
     </View>
   );
+}
+
+function formatTimeAgo(value?: string) {
+  if (!value) return "";
+
+  const diff = Date.now() - new Date(value).getTime();
+  const minutes = Math.floor(diff / 60000);
+
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
 }
