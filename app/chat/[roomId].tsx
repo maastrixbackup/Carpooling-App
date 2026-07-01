@@ -5,7 +5,7 @@ import {
   sendChatMessageApi,
 } from "@/services/chat.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, SendHorizonal, User } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -64,6 +64,7 @@ function createTempMessage({
 export default function ChatRoomScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
 
   const { roomId, title } = useLocalSearchParams<{
     roomId: string;
@@ -130,7 +131,11 @@ export default function ChatRoomScreen() {
 
     const setupSocket = async () => {
       try {
-        markChatReadApi(String(roomId)).catch(() => { });
+        markChatReadApi(String(roomId))
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ["my-chat-rooms"] });
+          })
+          .catch(() => { });
 
         const socket = await getAuthenticatedSocket();
 
@@ -167,8 +172,11 @@ export default function ChatRoomScreen() {
 
             return uniqueMessages([...withoutMatchingTemp, newMessage]);
           });
-
-          markChatReadApi(String(roomId)).catch(() => { });
+          markChatReadApi(String(roomId))
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ["my-chat-rooms"] });
+            })
+            .catch(() => { });
         };
 
         socket.off("connect", handleConnect);
@@ -202,7 +210,7 @@ export default function ChatRoomScreen() {
 
       socketRef.current = null;
     };
-  }, [roomId]);
+  }, [roomId, queryClient]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardDidShow", () => {
@@ -258,6 +266,8 @@ export default function ChatRoomScreen() {
 
     try {
       await sendChatMessageApi(String(roomId), cleanMessage);
+      await queryClient.invalidateQueries({ queryKey: ["my-chat-rooms"] });
+      await refetch();
     } catch (error: any) {
       setMessages((prev) =>
         prev.map((item) =>

@@ -25,15 +25,14 @@ import {
   FlatList,
   Keyboard,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 const filters = ["All", "Today", "Tomorrow", "This Week"];
@@ -118,7 +117,7 @@ function mapApiRideToCard(ride: any) {
 
 export default function RidesScreen() {
   const { colors } = useAppTheme();
-
+  const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState("All");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [minSeats, setMinSeats] = useState(1);
@@ -222,8 +221,8 @@ export default function RidesScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
-            paddingBottom: 120,
+            paddingTop: 16,
+            paddingBottom: insets.bottom + 90,
           }}
           ListHeaderComponent={
             <>

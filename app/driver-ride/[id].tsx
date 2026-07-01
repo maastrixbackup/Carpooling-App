@@ -1,6 +1,5 @@
 import { useConfirm } from "@/components/common/ConfirmProvider";
 import SlideActionButton from "@/components/SlideActionButton";
-import { useDriverLocationPublisher } from "@/hooks/useDriverLocationPublisher";
 import { respondToBookingApi } from "@/services/booking.service";
 import { getRoomByBookingApi } from "@/services/chat.service";
 import {
@@ -11,6 +10,7 @@ import {
     updateRideApi,
 } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { getStatusTheme, normalizeStatus } from "@/utils/statusTheme";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -102,7 +102,8 @@ export default function DriverRideDetailsScreen() {
     const [editVisible, setEditVisible] = useState(false);
 
     const insets = useSafeAreaInsets();
-    const ACTION_BAR_HEIGHT = 96 + Math.max(insets.bottom, 16);
+    const bottomInset = Math.max(insets.bottom, 16);
+    const ACTION_BAR_HEIGHT = 96 + bottomInset;
 
     const { data, isLoading, isError, isFetching, refetch } = useQuery({
         queryKey: ["driver-ride-details", id],
@@ -120,16 +121,6 @@ export default function DriverRideDetailsScreen() {
 
     const bookedSeats = bookings.reduce((sum, item) => sum + item.seats, 0);
     const totalEarning = bookings.reduce((sum, item) => sum + item.totalPrice, 0);
-
-    const isRideOngoing = ride?.status === "ongoing";
-    const {
-        isPublishing,
-        error: trackingError,
-        stopPublishing,
-    } = useDriverLocationPublisher({
-        rideId: ride?.id,
-        enabled: isRideOngoing,
-    });
 
     const startMutation = useMutation({
         mutationFn: startRideApi,
@@ -174,7 +165,6 @@ export default function DriverRideDetailsScreen() {
     const completeMutation = useMutation({
         mutationFn: completeRideApi,
         onSuccess: async () => {
-            await stopPublishing();
             toast.success("Ride completed successfully.");
             await queryClient.invalidateQueries({ queryKey: ["driver-ride-details", id] });
             await queryClient.invalidateQueries({ queryKey: ["my-rides"] });
@@ -327,20 +317,21 @@ export default function DriverRideDetailsScreen() {
         if (!ride) return;
         router.push({
             pathname: "/ride-map/[id]" as any,
-            params: { id: ride.id },
+            params: { id: ride.id, mode: "preview" },
         });
     };
 
-    const handleOpenLiveRide = () => {
+    const handleOpenGoogleMaps = () => {
         if (!ride) return;
-        if (ride.status !== "ongoing") {
-            toast.info("Live tracking is available after starting the ride.");
-            return;
-        }
+        const destination = encodeURIComponent(ride.fullTo || ride.to);
+        const url = Platform.OS === "ios"
+            ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`
+            : `google.navigation:q=${destination}`;
 
-        router.push({
-            pathname: "/live-ride/[id]" as any,
-            params: { id: ride.id },
+        Linking.openURL(url).catch(() => {
+            Linking.openURL(
+                `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`,
+            );
         });
     };
 
@@ -366,10 +357,16 @@ export default function DriverRideDetailsScreen() {
     }
 
     const statusTheme = getStatusTheme(ride.status, colors);
-    const canCancel = ride.status !== "cancelled" && ride.status !== "ongoing" && ride.status !== "completed";
-    const canEdit = ride.status === "scheduled";
-    const canStart = ride.status === "scheduled";
-    const canComplete = ride.status === "ongoing";
+    const normalizedRideStatus = normalizeStatus(ride.status);
+
+    const canCancel =
+        normalizedRideStatus !== "cancelled" &&
+        normalizedRideStatus !== "ongoing" &&
+        normalizedRideStatus !== "completed";
+
+    const canEdit = normalizedRideStatus === "scheduled";
+    const canStart = normalizedRideStatus === "scheduled";
+    const canComplete = normalizedRideStatus === "ongoing";
     const isActionLoading = startMutation.isPending || completeMutation.isPending || cancelMutation.isPending;
 
     return (
@@ -390,7 +387,7 @@ export default function DriverRideDetailsScreen() {
                     contentContainerStyle={{
                         paddingHorizontal: 20,
                         paddingTop: 16,
-                        paddingBottom: ACTION_BAR_HEIGHT + 28,
+                        paddingBottom: ACTION_BAR_HEIGHT + 36,
                     }}
                 >
 
@@ -430,33 +427,6 @@ export default function DriverRideDetailsScreen() {
                         </View>
                     </View>
 
-                    {ride.status === "ongoing" && (
-                        <View
-                            style={{
-                                backgroundColor: colors.card,
-                                borderColor: colors.border,
-                                ...cardShadow,
-                            }}
-                            className="mt-5 rounded-[24px] border p-4"
-                        >
-                            <Text style={{ color: colors.text }} className="font-extrabold">
-                                Live Tracking
-                            </Text>
-
-                            <Text
-                                style={{
-                                    color: trackingError ? colors.danger : colors.success,
-                                }}
-                                className="mt-1 text-xs font-bold"
-                            >
-                                {trackingError
-                                    ? trackingError
-                                    : isPublishing
-                                        ? "Live location is visible to accepted passengers."
-                                        : "Preparing secure live tracking..."}
-                            </Text>
-                        </View>
-                    )}
 
                     <View className="mt-5 flex-row gap-3">
                         <MiniStat icon={<Ticket size={17} color={colors.primary} />} label="Bookings" value={`${bookings.length}`} />
@@ -491,7 +461,8 @@ export default function DriverRideDetailsScreen() {
                         <OverviewTab
                             ride={ride}
                             onViewMap={handleViewMap}
-                            onOpenLiveRide={handleOpenLiveRide}
+                            onOpenGoogleMaps={handleOpenGoogleMaps}
+                            canNavigate={normalizedRideStatus === "ongoing"}
                         />
                     ) : (
                         <BookingsTab
@@ -508,7 +479,8 @@ export default function DriverRideDetailsScreen() {
                     style={{
                         backgroundColor: colors.card,
                         borderTopColor: colors.border,
-                        paddingBottom: Math.max(insets.bottom, 24),
+                        paddingBottom: bottomInset + 14,
+                        paddingTop: 14,
                         ...cardShadow,
                     }}
                     className="absolute bottom-0 left-0 right-0 rounded-t-[28px] border-t px-5 pt-4"
@@ -608,11 +580,13 @@ export default function DriverRideDetailsScreen() {
 function OverviewTab({
     ride,
     onViewMap,
-    onOpenLiveRide,
+    onOpenGoogleMaps,
+    canNavigate
 }: {
     ride: DriverRideUi;
     onViewMap: () => void;
-    onOpenLiveRide: () => void;
+    onOpenGoogleMaps: () => void;
+    canNavigate: boolean;
 }) {
     const { colors } = useAppTheme();
 
@@ -631,44 +605,28 @@ function OverviewTab({
                     value={`${ride.vehicle} • ${ride.color} • ${ride.registrationNumber}`}
                 />
 
-                <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={
-                        ride.status === "ongoing"
-                            ? onOpenLiveRide
-                            : onViewMap
-                    }
-                    style={{
-                        backgroundColor:
-                            ride.status === "ongoing"
-                                ? colors.primarySoft
-                                : colors.primarySoft,
-                    }}
-                    className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
-                >
-                    <Navigation
-                        size={18}
-                        color={
-                            ride.status === "ongoing"
-                                ? "#FFFFFF"
-                                : colors.primary
-                        }
-                    />
-
-                    <Text
+                <View className="gap-3">
+                    <TouchableOpacity
+                        activeOpacity={0.9}
+                        onPress={canNavigate ? onOpenGoogleMaps : onViewMap}
                         style={{
-                            color:
-                                ride.status === "ongoing"
-                                    ? "#FFFFFF"
-                                    : colors.primary,
+                            backgroundColor: canNavigate ? colors.primary : colors.primarySoft,
                         }}
-                        className="font-extrabold"
-                    >
-                        {ride.status === "ongoing"
-                            ? "Open Live Tracking"
-                            : "View Route Map"}
-                    </Text>
-                </TouchableOpacity>
+                        className="mt-2 min-h-[54px] flex-row items-center justify-center gap-2 rounded-2xl px-4">
+                        <Navigation
+                            size={20}
+                            color={canNavigate ? "#FFFFFF" : colors.primary} />
+                        <Text
+                            style={{
+                                color: canNavigate ? "#FFFFFF" : colors.primary,
+                            }}
+                            className="font-extrabold"
+                            numberOfLines={1}
+                        >
+                            {canNavigate ? "Navigate with Google Maps" : "View Route Preview"}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </SectionCard>
 
 
@@ -756,10 +714,12 @@ function PassengerCard({
     responding?: boolean;
 }) {
     const { colors } = useAppTheme();
-    const statusTheme = getBookingStatusTheme(booking.status, colors);
+    const normalizedStatus = normalizeStatus(booking.status);
+    const statusTheme = getStatusTheme(normalizedStatus, colors);
 
-    const isPending = booking.status === "pending";
-    const isAccepted = booking.status === "accepted";
+    const isPending = normalizedStatus === "pending";
+    const canContactPassenger =
+        normalizedStatus === "confirmed" || normalizedStatus === "ongoing";
 
     return (
         <View
@@ -827,7 +787,7 @@ function PassengerCard({
                             <Phone size={16} color={colors.primary} />
                         </TouchableOpacity>
 
-                        {isAccepted && (
+                        {canContactPassenger && (
                             <TouchableOpacity
                                 activeOpacity={0.85}
                                 onPress={onChat}
@@ -880,13 +840,13 @@ function PassengerCard({
                     </View>
                 )}
 
-                {isAccepted && (
+                {canContactPassenger && (
                     <View
                         style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
                         className="mt-4 rounded-2xl px-4 py-3"
                     >
                         <Text style={{ color: colors.success }} className="text-xs font-bold">
-                            Booking accepted. Chat is now enabled.
+                            Passenger contact is enabled for this booking.
                         </Text>
                     </View>
                 )}
@@ -1342,70 +1302,6 @@ function formatDuration(seconds: number) {
     return remaining > 0 ? `${hours} hr ${remaining} min` : `${hours} hr`;
 }
 
-function getStatusTheme(status: string, colors: ReturnType<typeof useAppTheme>["colors"]) {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "ongoing") {
-        return {
-            label: "In Progress", bg: colors.primarySoft, text: colors.primary,
-        };
-    }
-
-    if (value === "cancelled") {
-        return { label: "Cancelled", bg: colors.dangerSoft, text: colors.danger };
-    }
-
-    if (value === "completed") {
-        return { label: "Completed", bg: colors.primarySoft, text: colors.primary };
-    }
-
-    return { label: "Scheduled", bg: "rgba(34,197,94,0.14)", text: colors.success };
-}
-
-function getBookingStatusTheme(
-    status: string,
-    colors: ReturnType<typeof useAppTheme>["colors"],
-) {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "accepted" || value === "confirmed") {
-        return {
-            label: "Accepted",
-            bg: "rgba(34,197,94,0.14)",
-            text: colors.success,
-        };
-    }
-
-    if (value === "rejected") {
-        return {
-            label: "Rejected",
-            bg: colors.dangerSoft,
-            text: colors.danger,
-        };
-    }
-
-    if (value === "cancelled") {
-        return {
-            label: "Cancelled",
-            bg: colors.dangerSoft,
-            text: colors.danger,
-        };
-    }
-
-    if (value === "completed") {
-        return {
-            label: "Completed",
-            bg: colors.primarySoft,
-            text: colors.primary,
-        };
-    }
-
-    return {
-        label: "Pending",
-        bg: colors.primarySoft,
-        text: colors.primary,
-    };
-}
 
 function PaymentReceivedCard({
     totalAmount,

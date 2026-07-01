@@ -1,8 +1,12 @@
-import { getAuthenticatedSocket } from "@/lib/socket";
+import {
+  joinRideTracking,
+  leaveRideTracking,
+  publishRideLocation,
+} from "@/services/liveTracking.service";
 import * as Location from "expo-location";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AppStateStatus } from "react-native";
 import { AppState } from "react-native";
-import type { Socket } from "socket.io-client";
 
 type Props = {
   rideId?: string | number | null;
@@ -10,59 +14,94 @@ type Props = {
 };
 
 export function useDriverLocationPublisher({ rideId, enabled = false }: Props) {
-  const socketRef = useRef<Socket | null>(null);
   const subscriptionRef = useRef<Location.LocationSubscription | null>(null);
+  const startedRef = useRef(false);
+  const startingRef = useRef(false);
+  const rideIdRef = useRef<string | number | null>(null);
 
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const stopPublishing = useCallback(async () => {
+    if (!startedRef.current && !subscriptionRef.current) return;
+
     subscriptionRef.current?.remove();
     subscriptionRef.current = null;
+
+    startedRef.current = false;
+    startingRef.current = false;
     setIsPublishing(false);
+
+    const currentRideId = rideIdRef.current;
+    rideIdRef.current = null;
+
+    if (currentRideId) {
+      leaveRideTracking(currentRideId).catch(() => {});
+    }
   }, []);
 
   const startPublishing = useCallback(async () => {
+    if (!rideId || !enabled) return;
+    if (startedRef.current || startingRef.current) return;
+
+    const currentRideId = rideId;
+
     try {
-      if (!rideId || !enabled) return;
+      startingRef.current = true;
+      rideIdRef.current = currentRideId;
 
       const permission = await Location.requestForegroundPermissionsAsync();
 
       if (permission.status !== "granted") {
         setError("Location permission is required for live tracking.");
+        startingRef.current = false;
         return;
       }
 
-      const socket = await getAuthenticatedSocket();
-      socketRef.current = socket;
+      await joinRideTracking(currentRideId);
 
-      socket.emit("ride:join", { rideId });
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
+
+      await publishRideLocation({
+        rideId: currentRideId,
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+        heading: current.coords.heading,
+        speed: current.coords.speed,
+        accuracy: current.coords.accuracy,
+      });
 
       subscriptionRef.current?.remove();
 
       subscriptionRef.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 3000,
-          distanceInterval: 10,
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 2500,
+          distanceInterval: 5,
         },
         (location) => {
-          socket.emit("ride:location:update", {
-            rideId,
+          publishRideLocation({
+            rideId: currentRideId,
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
             heading: location.coords.heading,
             speed: location.coords.speed,
             accuracy: location.coords.accuracy,
-          });
+          }).catch(() => {});
         },
       );
 
+      startedRef.current = true;
+      startingRef.current = false;
       setIsPublishing(true);
       setError(null);
-    } catch {
-      setError("Unable to start live location sharing.");
+    } catch (err: any) {
+      startedRef.current = false;
+      startingRef.current = false;
       setIsPublishing(false);
+      setError(err?.message || "Unable to start live location sharing.");
     }
   }, [rideId, enabled]);
 
@@ -79,12 +118,16 @@ export function useDriverLocationPublisher({ rideId, enabled = false }: Props) {
   }, [enabled, startPublishing, stopPublishing]);
 
   useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => {
+    const onAppStateChange = (state: AppStateStatus) => {
       if (state === "active" && enabled && rideId) {
         startPublishing();
       }
-    });
 
+      // Do not stop on inactive/background for now.
+      // Stopping here causes the publish true/false loop you are seeing.
+    };
+
+    const sub = AppState.addEventListener("change", onAppStateChange);
     return () => sub.remove();
   }, [enabled, rideId, startPublishing]);
 
