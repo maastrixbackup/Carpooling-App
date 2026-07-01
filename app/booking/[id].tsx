@@ -38,7 +38,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
-type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "ongoing";
 const cardShadow = {
   shadowColor: "#000",
   shadowOffset: {
@@ -214,16 +214,30 @@ export default function BookingDetailsScreen() {
     });
   };
 
-  const handleOpenLiveRide = () => {
+  const handleOpenGoogleMaps = async () => {
     if (!booking) return;
-    if (!canTrackLiveRide) {
-      toast.info("Live tracking will be available once the driver starts the ride.");
+
+    try {
+      const destination = `${booking.destinationLat},${booking.destinationLng}`;
+
+      const appUrl =
+        Platform.OS === "android"
+          ? `google.navigation:q=${destination}&mode=d`
+          : `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`;
+
+      await Linking.openURL(appUrl);
+    } catch {
+      toast.error("Unable to open Google Maps.");
+    }
+  };
+
+  const handleRideNavigation = () => {
+    if (canTrackLiveRide) {
+      handleOpenGoogleMaps();
       return;
     }
-    router.push({
-      pathname: "/live-ride/[id]" as any,
-      params: { id: booking.rideId },
-    });
+
+    handleViewMap();
   };
 
   if (isLoading) {
@@ -250,8 +264,7 @@ export default function BookingDetailsScreen() {
   }
 
   const statusTheme = getStatusTheme(booking.status, colors);
-  const canCancel =
-    booking.status === "pending" || booking.status === "confirmed";
+  const canCancel = booking.status === "pending" || booking.status === "confirmed";
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -343,7 +356,7 @@ export default function BookingDetailsScreen() {
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={canTrackLiveRide ? handleOpenLiveRide : handleViewMap}
+              onPress={handleRideNavigation}
               style={{ backgroundColor: colors.primarySoft }}
               className="mt-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
             >
@@ -352,7 +365,7 @@ export default function BookingDetailsScreen() {
                 style={{ color: colors.primary }}
                 className="font-extrabold"
               >
-                {canTrackLiveRide ? "Track Live Ride" : "View Route Map"}
+                {canTrackLiveRide ? "Navigate with Google Maps" : "View Route Map"}
               </Text>
             </TouchableOpacity>
           </SectionCard>
@@ -597,7 +610,7 @@ export default function BookingDetailsScreen() {
           }}>
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={canTrackLiveRide ? handleOpenLiveRide : handleViewMap}
+              onPress={handleRideNavigation}
               style={{ backgroundColor: colors.primarySoft }}
               className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl py-4"
             >
@@ -606,7 +619,7 @@ export default function BookingDetailsScreen() {
                 style={{ color: colors.primary }}
                 className="font-extrabold"
               >
-               {canTrackLiveRide ? "Track Live" : "Map"}
+                {canTrackLiveRide ? "Navigate" : "Map"}
               </Text>
             </TouchableOpacity>
 
@@ -916,7 +929,7 @@ function normalizeBookingStatus(status?: string): BookingStatus {
   if (["cancelled", "canceled", "rejected"].includes(value)) return "cancelled";
   if (["completed", "complete"].includes(value)) return "completed";
 
-  return "pending";
+  return "ongoing";
 }
 
 function formatDisplayDate(value?: string) {
@@ -962,6 +975,14 @@ function getStatusTheme(
   status: BookingStatus,
   colors: ReturnType<typeof useAppTheme>["colors"],
 ) {
+  if (status === "ongoing") {
+    return {
+      label: "Ongoing",
+      bg: "rgba(59,130,246,0.14)",
+      text: colors.primary,
+    };
+  }
+
   if (status === "confirmed") {
     return {
       label: "Accepted",
@@ -974,7 +995,7 @@ function getStatusTheme(
     return {
       label: "Completed",
       bg: colors.primarySoft,
-      text: colors.primary,
+      text: colors.success,
     };
   }
 
