@@ -2,7 +2,7 @@ import { shortAddress1 } from "@/hooks/address-trimmer";
 import { getMyChatRoomsApi } from "@/services/chat.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   ArrowLeft,
   Car,
@@ -14,7 +14,7 @@ import {
   Users,
   X
 } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -74,7 +74,17 @@ export default function MessagesScreen() {
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["my-chat-rooms"],
     queryFn: getMyChatRoomsApi,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnReconnect: true,
   });
+  
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const passengerChats = useMemo(() => {
     return (data?.data?.passengerChats || []).map(mapChatItem);

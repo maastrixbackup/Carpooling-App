@@ -10,6 +10,7 @@ import {
     updateRideApi,
 } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { getStatusTheme, normalizeStatus } from "@/utils/statusTheme";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -316,19 +317,16 @@ export default function DriverRideDetailsScreen() {
         if (!ride) return;
         router.push({
             pathname: "/ride-map/[id]" as any,
-            params: { id: ride.id },
+            params: { id: ride.id, mode: "preview" },
         });
     };
 
     const handleOpenGoogleMaps = () => {
         if (!ride) return;
-
         const destination = encodeURIComponent(ride.fullTo || ride.to);
-
-        const url =
-            Platform.OS === "ios"
-                ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`
-                : `google.navigation:q=${destination}`;
+        const url = Platform.OS === "ios"
+            ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`
+            : `google.navigation:q=${destination}`;
 
         Linking.openURL(url).catch(() => {
             Linking.openURL(
@@ -359,10 +357,16 @@ export default function DriverRideDetailsScreen() {
     }
 
     const statusTheme = getStatusTheme(ride.status, colors);
-    const canCancel = ride.status !== "cancelled" && ride.status !== "ongoing" && ride.status !== "completed";
-    const canEdit = ride.status === "scheduled";
-    const canStart = ride.status === "scheduled";
-    const canComplete = ride.status === "ongoing";
+    const normalizedRideStatus = normalizeStatus(ride.status);
+
+    const canCancel =
+        normalizedRideStatus !== "cancelled" &&
+        normalizedRideStatus !== "ongoing" &&
+        normalizedRideStatus !== "completed";
+
+    const canEdit = normalizedRideStatus === "scheduled";
+    const canStart = normalizedRideStatus === "scheduled";
+    const canComplete = normalizedRideStatus === "ongoing";
     const isActionLoading = startMutation.isPending || completeMutation.isPending || cancelMutation.isPending;
 
     return (
@@ -458,6 +462,7 @@ export default function DriverRideDetailsScreen() {
                             ride={ride}
                             onViewMap={handleViewMap}
                             onOpenGoogleMaps={handleOpenGoogleMaps}
+                            canNavigate={normalizedRideStatus === "ongoing"}
                         />
                     ) : (
                         <BookingsTab
@@ -576,10 +581,12 @@ function OverviewTab({
     ride,
     onViewMap,
     onOpenGoogleMaps,
+    canNavigate
 }: {
     ride: DriverRideUi;
     onViewMap: () => void;
     onOpenGoogleMaps: () => void;
+    canNavigate: boolean;
 }) {
     const { colors } = useAppTheme();
 
@@ -601,13 +608,22 @@ function OverviewTab({
                 <View className="gap-3">
                     <TouchableOpacity
                         activeOpacity={0.9}
-                        onPress={onOpenGoogleMaps}
-                        style={{ backgroundColor: colors.primarySoft }}
-                        className="mt-2 flex-row items-center justify-center gap-2 rounded-2xl py-4"
-                    >
-                        <Navigation size={20} color="#fff" />
-                        <Text className="font-extrabold text-white">
-                            Navigate with Google Maps
+                        onPress={canNavigate ? onOpenGoogleMaps : onViewMap}
+                        style={{
+                            backgroundColor: canNavigate ? colors.primary : colors.primarySoft,
+                        }}
+                        className="mt-2 min-h-[54px] flex-row items-center justify-center gap-2 rounded-2xl px-4">
+                        <Navigation
+                            size={20}
+                            color={canNavigate ? "#FFFFFF" : colors.primary} />
+                        <Text
+                            style={{
+                                color: canNavigate ? "#FFFFFF" : colors.primary,
+                            }}
+                            className="font-extrabold"
+                            numberOfLines={1}
+                        >
+                            {canNavigate ? "Navigate with Google Maps" : "View Route Preview"}
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -698,10 +714,12 @@ function PassengerCard({
     responding?: boolean;
 }) {
     const { colors } = useAppTheme();
-    const statusTheme = getBookingStatusTheme(booking.status, colors);
+    const normalizedStatus = normalizeStatus(booking.status);
+    const statusTheme = getStatusTheme(normalizedStatus, colors);
 
-    const isPending = booking.status === "pending";
-    const isAccepted = booking.status === "accepted";
+    const isPending = normalizedStatus === "pending";
+    const canContactPassenger =
+        normalizedStatus === "confirmed" || normalizedStatus === "ongoing";
 
     return (
         <View
@@ -769,7 +787,7 @@ function PassengerCard({
                             <Phone size={16} color={colors.primary} />
                         </TouchableOpacity>
 
-                        {isAccepted && (
+                        {canContactPassenger && (
                             <TouchableOpacity
                                 activeOpacity={0.85}
                                 onPress={onChat}
@@ -822,13 +840,13 @@ function PassengerCard({
                     </View>
                 )}
 
-                {isAccepted && (
+                {canContactPassenger && (
                     <View
                         style={{ backgroundColor: "rgba(34,197,94,0.14)" }}
                         className="mt-4 rounded-2xl px-4 py-3"
                     >
                         <Text style={{ color: colors.success }} className="text-xs font-bold">
-                            Booking accepted. Chat is now enabled.
+                            Passenger contact is enabled for this booking.
                         </Text>
                     </View>
                 )}
@@ -1284,70 +1302,6 @@ function formatDuration(seconds: number) {
     return remaining > 0 ? `${hours} hr ${remaining} min` : `${hours} hr`;
 }
 
-function getStatusTheme(status: string, colors: ReturnType<typeof useAppTheme>["colors"]) {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "ongoing") {
-        return {
-            label: "In Progress", bg: colors.primarySoft, text: colors.primary,
-        };
-    }
-
-    if (value === "cancelled") {
-        return { label: "Cancelled", bg: colors.dangerSoft, text: colors.danger };
-    }
-
-    if (value === "completed") {
-        return { label: "Completed", bg: colors.primarySoft, text: colors.primary };
-    }
-
-    return { label: "Scheduled", bg: "rgba(34,197,94,0.14)", text: colors.success };
-}
-
-function getBookingStatusTheme(
-    status: string,
-    colors: ReturnType<typeof useAppTheme>["colors"],
-) {
-    const value = String(status || "").toLowerCase();
-
-    if (value === "accepted" || value === "confirmed") {
-        return {
-            label: "Accepted",
-            bg: "rgba(34,197,94,0.14)",
-            text: colors.success,
-        };
-    }
-
-    if (value === "rejected") {
-        return {
-            label: "Rejected",
-            bg: colors.dangerSoft,
-            text: colors.danger,
-        };
-    }
-
-    if (value === "cancelled") {
-        return {
-            label: "Cancelled",
-            bg: colors.dangerSoft,
-            text: colors.danger,
-        };
-    }
-
-    if (value === "completed") {
-        return {
-            label: "Completed",
-            bg: colors.primarySoft,
-            text: colors.primary,
-        };
-    }
-
-    return {
-        label: "Pending",
-        bg: colors.primarySoft,
-        text: colors.primary,
-    };
-}
 
 function PaymentReceivedCard({
     totalAmount,

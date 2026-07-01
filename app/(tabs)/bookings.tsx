@@ -5,6 +5,7 @@ import {
   getMyBookingsApi,
 } from "@/services/booking.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { AppStatus, getStatusTheme, normalizeStatus } from "@/utils/statusTheme";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import {
@@ -30,7 +31,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
-type BookingStatus = "upcoming" | "completed" | "cancelled" | "pending";
+type BookingStatus = AppStatus | "upcoming";
 
 type BookingUi = {
   id: string;
@@ -53,6 +54,7 @@ const bookingTabs: { label: string; value: BookingStatus | "all" }[] = [
   { label: "All", value: "all" },
   { label: "Pending", value: "pending" },
   { label: "Upcoming", value: "upcoming" },
+  { label: "Ongoing", value: "ongoing" },
   { label: "Completed", value: "completed" },
   { label: "Cancelled", value: "cancelled" },
 ];
@@ -369,7 +371,7 @@ function BookingCard({
           </Text>
         </View>
 
-        {booking.bookingStatus === "upcoming" ? (
+        {["upcoming", "pending"].includes(booking.bookingStatus) ? (
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={(event) => {
@@ -556,15 +558,13 @@ function mapBookingToUi(booking: any): BookingUi {
 }
 
 function normalizeBookingStatus(status?: string): BookingStatus {
-  const value = String(status || "").toLowerCase();
-  if (["completed", "complete"].includes(value)) return "completed";
-  if (["cancelled", "canceled", "rejected"].includes(value)) {
-    return "cancelled";
+  const value = normalizeStatus(status);
+
+  if (value === "confirmed" || value === "accepted" || value === "scheduled") {
+    return "upcoming";
   }
-  if (["pending", "payment_pending"].includes(value)) {
-    return "pending";
-  }
-  return "upcoming";
+
+  return value;
 }
 
 function formatDisplayDate(value?: string) {
@@ -595,39 +595,4 @@ function formatDisplayTime(value?: string) {
   hour = hour % 12 || 12;
 
   return `${hour}:${minute} ${ampm}`;
-}
-
-function getStatusTheme(
-  status: BookingStatus,
-  colors: ReturnType<typeof useAppTheme>["colors"]
-) {
-  if (status === "completed") {
-    return {
-      label: "Completed",
-      bg: colors.primarySoft,
-      text: colors.primary,
-    };
-  }
-
-  if (status === "cancelled") {
-    return {
-      label: "Cancelled",
-      bg: colors.dangerSoft,
-      text: colors.danger,
-    };
-  }
-
-  if (status === "pending") {
-    return {
-      label: "Pending",
-      bg: "rgba(245,158,11,0.14)",
-      text: "#F59E0B",
-    };
-  }
-
-  return {
-    label: "Upcoming",
-    bg: "rgba(34,197,94,0.14)",
-    text: colors.success,
-  };
 }

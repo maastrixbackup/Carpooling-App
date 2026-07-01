@@ -8,6 +8,7 @@ import { getRoomByBookingApi } from "@/services/chat.service";
 import { createReviewApi } from "@/services/review.service";
 import { getRideByIdApi } from "@/services/ride.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { AppStatus, getStatusTheme, normalizeStatus } from "@/utils/statusTheme";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -38,7 +39,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
-type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed" | "ongoing";
 const cardShadow = {
   shadowColor: "#000",
   shadowOffset: {
@@ -77,7 +77,7 @@ type BookingDetails = {
   seats: number;
   pricePerSeat: number;
   totalPrice: number;
-  status: BookingStatus;
+  status: AppStatus;
   paymentStatus: string;
   paymentType: string;
   driverName: string;
@@ -128,12 +128,34 @@ export default function BookingDetailsScreen() {
     queryKey: ["booking-live-ride-status", booking?.rideId],
     queryFn: () => getRideByIdApi(booking!.rideId),
     enabled: !!booking?.rideId,
-    refetchInterval: 10000,
+    refetchInterval: booking?.status === "ongoing"
+      ? 10000
+      : false,
   });
 
   const rideStatus = rideData?.data?.ride?.status;
   // console.log(booking?.status)
-  const canTrackLiveRide = rideStatus === "ongoing";
+  const canTrackLiveRide =
+    booking?.status === "ongoing" &&
+    rideStatus === "ongoing";
+  const canContactDriver = booking?.status === "confirmed" || booking?.status === "ongoing";
+  const isRideFinished = booking?.status === "completed" || booking?.status === "cancelled";
+
+  const contactMessage = (() => {
+    switch (booking?.status) {
+      case "pending":
+        return "The driver hasn't accepted your booking yet. Call and chat will be available once it's accepted.";
+
+      case "cancelled":
+        return "This booking has been cancelled. Call and chat are no longer available.";
+
+      case "completed":
+        return "This ride has been completed. Driver contact is no longer available.";
+
+      default:
+        return "Driver contact is currently unavailable.";
+    }
+  })();
 
 
 
@@ -176,18 +198,28 @@ export default function BookingDetailsScreen() {
       return;
     }
 
-    Linking.openURL(`tel:$+91{booking.driverPhone}`);
+    const phone = formatIndianPhoneNumber(booking.driverPhone);
+
+    if (!phone) {
+      toast.error("Invalid phone number.");
+      return;
+    }
+
+    Linking.openURL(`tel:${phone}`);
   };
 
   const handleOpenChat = async () => {
     if (!booking) return;
-    if (booking.status !== "confirmed") {
-      toast.error("Chat is available after driver accepts your booking.");
+
+    if (!canContactDriver) {
+      toast.error("Chat is available only after the driver accepts your booking.");
       return;
     }
+
     try {
       const response = await getRoomByBookingApi(booking.id);
       const roomId = response?.data?.room?.id;
+
       if (!roomId) {
         toast.error("Chat room not available yet.");
         return;
@@ -210,13 +242,12 @@ export default function BookingDetailsScreen() {
 
     router.push({
       pathname: "/ride-map/[id]" as any,
-      params: { id: booking.rideId },
+      params: { id: booking.rideId, mode:"preview" },
     });
   };
 
   const handleOpenGoogleMaps = async () => {
     if (!booking) return;
-
     try {
       const destination = `${booking.destinationLat},${booking.destinationLng}`;
 
@@ -236,7 +267,6 @@ export default function BookingDetailsScreen() {
       handleOpenGoogleMaps();
       return;
     }
-
     handleViewMap();
   };
 
@@ -415,39 +445,51 @@ export default function BookingDetailsScreen() {
               value={booking.registrationNumber}
             />
 
-            {booking.driverPhone && (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleCallDriver}
-                style={{ backgroundColor: colors.input }}
-                className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
-              >
-                <Phone size={18} color={colors.primary} />
-                <Text style={{ color: colors.text }} className="font-extrabold">
-                  Call Driver
-                </Text>
-              </TouchableOpacity>
-            )}
 
-            {booking.status === "confirmed" ? (
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleOpenChat}
-                style={{ backgroundColor: colors.primarySoft }}
-                className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
-              >
-                <MessageCircle size={18} color={colors.primary} />
-                <Text style={{ color: colors.primary }} className="font-extrabold">
-                  Chat with Driver
-                </Text>
-              </TouchableOpacity>
+            {canContactDriver ? (
+              <>
+                {booking.driverPhone && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleCallDriver}
+                    style={{ backgroundColor: colors.input }}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
+                  >
+                    <Phone size={18} color={colors.primary} />
+                    <Text
+                      style={{ color: colors.text }}
+                      className="font-extrabold"
+                    >
+                      Call Driver
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleOpenChat}
+                  style={{ backgroundColor: colors.primarySoft }}
+                  className="flex-row items-center justify-center gap-2 rounded-2xl py-4"
+                >
+                  <MessageCircle size={18} color={colors.primary} />
+                  <Text
+                    style={{ color: colors.primary }}
+                    className="font-extrabold"
+                  >
+                    Chat with Driver
+                  </Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <View
                 style={{ backgroundColor: colors.input }}
-                className="rounded-2xl px-4 py-3"
+                className="rounded-2xl px-4 py-4"
               >
-                <Text style={{ color: colors.muted }} className="text-center text-xs font-bold">
-                  Chat will be available after driver accepts your booking.
+                <Text
+                  style={{ color: colors.muted }}
+                  className="text-center text-sm leading-5"
+                >
+                  {contactMessage}
                 </Text>
               </View>
             )}
@@ -909,7 +951,7 @@ function mapBookingToDetails(booking: any): BookingDetails {
     seats: Number(booking.seats || 1),
     pricePerSeat: Number(booking.pricePerSeat || 0),
     totalPrice: Number(booking.totalPrice || 0),
-    status: normalizeBookingStatus(booking.status),
+    status: normalizeStatus(booking.status),
     paymentStatus: booking.paymentStatus || "unpaid",
     paymentType: booking.paymentType || "cash",
     driverName: booking.driverName || "Driver",
@@ -922,15 +964,6 @@ function mapBookingToDetails(booking: any): BookingDetails {
   };
 }
 
-function normalizeBookingStatus(status?: string): BookingStatus {
-  const value = String(status || "").toLowerCase();
-
-  if (["confirmed", "accepted"].includes(value)) return "confirmed";
-  if (["cancelled", "canceled", "rejected"].includes(value)) return "cancelled";
-  if (["completed", "complete"].includes(value)) return "completed";
-
-  return "ongoing";
-}
 
 function formatDisplayDate(value?: string) {
   if (!value) return "Date unavailable";
@@ -970,50 +1003,6 @@ function capitalize(value?: string) {
 
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
-
-function getStatusTheme(
-  status: BookingStatus,
-  colors: ReturnType<typeof useAppTheme>["colors"],
-) {
-  if (status === "ongoing") {
-    return {
-      label: "Ongoing",
-      bg: "rgba(59,130,246,0.14)",
-      text: colors.primary,
-    };
-  }
-
-  if (status === "confirmed") {
-    return {
-      label: "Accepted",
-      bg: "rgba(34,197,94,0.14)",
-      text: colors.success,
-    };
-  }
-
-  if (status === "completed") {
-    return {
-      label: "Completed",
-      bg: colors.primarySoft,
-      text: colors.success,
-    };
-  }
-
-  if (status === "cancelled") {
-    return {
-      label: "Cancelled",
-      bg: colors.dangerSoft,
-      text: colors.danger,
-    };
-  }
-
-  return {
-    label: "Pending",
-    bg: colors.primarySoft,
-    text: colors.primary,
-  };
-}
-
 
 function StickyBookingHeader({
   statusTheme,
@@ -1081,3 +1070,24 @@ function StickyBookingHeader({
     </View>
   );
 }
+
+const formatIndianPhoneNumber = (phone?: string | null) => {
+  if (!phone) return null;
+
+  // Remove spaces, hyphens, brackets, etc.
+  let normalized = phone.replace(/\D/g, "");
+
+  // Already has country code
+  if (normalized.startsWith("91") && normalized.length === 12) {
+    return `+${normalized}`;
+  }
+
+  // Normal 10-digit Indian mobile number
+  if (normalized.length === 10) {
+    return `+91${normalized}`;
+  }
+
+  // Fallback
+  return `+${normalized}`;
+};
+

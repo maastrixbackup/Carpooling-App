@@ -11,13 +11,24 @@ import {
   Navigation,
   ShieldCheck,
   Star,
-  Users
+  Users,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
+import {
+  ActivityIndicator,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from "react-native";
 // import MapView from "react-native-maps";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 type LatLng = {
   latitude: number;
@@ -67,7 +78,12 @@ function mapApiRide(ride: any) {
 
 export default function RideMapScreen() {
   const { colors, isDark } = useAppTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, mode } = useLocalSearchParams<{
+    id: string;
+    mode?: string;
+  }>();
+
+  const isPreviewMode = mode === "preview";
   const mapRef = useRef<MapView | null>(null);
   const insets = useSafeAreaInsets();
 
@@ -96,7 +112,7 @@ export default function RideMapScreen() {
         latitude: 20.2961,
         longitude: 85.8245,
       },
-    [ride]
+    [ride],
   );
 
   const dropCoordinate = useMemo<LatLng>(
@@ -105,7 +121,7 @@ export default function RideMapScreen() {
         latitude: 20.4625,
         longitude: 85.883,
       },
-    [ride]
+    [ride],
   );
 
   const cacheKey = useMemo(() => {
@@ -152,10 +168,14 @@ export default function RideMapScreen() {
 
         setRouteCoords(decoded);
         setDistanceText(
-          ride.distanceMeters ? `${(Number(ride.distanceMeters) / 1000).toFixed(1)} km` : "Unavailable"
+          ride.distanceMeters
+            ? `${(Number(ride.distanceMeters) / 1000).toFixed(1)} km`
+            : "Unavailable",
         );
         setDurationText(
-          ride.durationSeconds ? `${Math.round(Number(ride.durationSeconds) / 60)} min` : "Unavailable"
+          ride.durationSeconds
+            ? `${Math.round(Number(ride.durationSeconds) / 60)} min`
+            : "Unavailable",
         );
 
         routeCache.set(cacheKey, {
@@ -181,13 +201,15 @@ export default function RideMapScreen() {
       const destination = `${dropCoordinate.latitude},${dropCoordinate.longitude}`;
 
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=driving&key=${apiKey}`;
-      console.log(url)
+      console.log(url);
 
       const response = await fetch(url);
       const result = await response.json();
 
       if (result.status !== "OK") {
-        throw new Error(result.error_message || result.status || "Directions failed");
+        throw new Error(
+          result.error_message || result.status || "Directions failed",
+        );
       }
 
       const route = result.routes?.[0];
@@ -269,7 +291,7 @@ export default function RideMapScreen() {
       }, 250);
 
       return () => clearTimeout(timer);
-    }, [cacheKey, fitRouteToScreen])
+    }, [cacheKey, fitRouteToScreen]),
   );
 
   if (isLoading) {
@@ -309,9 +331,6 @@ export default function RideMapScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-
-
-
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -373,8 +392,6 @@ export default function RideMapScreen() {
         </Marker>
       </MapView>
 
-
-
       {isRouteLoading && routeCoords.length === 0 && (
         <View className="absolute inset-0 items-center justify-center bg-black/10">
           <View
@@ -382,14 +399,20 @@ export default function RideMapScreen() {
             className="items-center rounded-3xl border px-5 py-4"
           >
             <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={{ color: colors.text }} className="mt-2 text-xs font-bold">
+            <Text
+              style={{ color: colors.text }}
+              className="mt-2 text-xs font-bold"
+            >
               Loading road route
             </Text>
           </View>
         </View>
       )}
 
-      <SafeAreaView edges={["top"]} className="absolute left-0 right-0 top-0 px-5">
+      <SafeAreaView
+        edges={["top"]}
+        className="absolute left-0 right-0 top-0 px-5"
+      >
         <View className="flex-row items-center justify-between">
           <TouchableOpacity
             activeOpacity={0.85}
@@ -416,7 +439,7 @@ export default function RideMapScreen() {
           backgroundColor: colors.card,
           borderColor: colors.border,
           maxHeight: bottomSheetMaxHeight,
-          paddingBottom: bottomInset,
+          paddingBottom: isPreviewMode ? bottomInset + 14 : bottomInset,
           marginBottom: Platform.OS === "android" ? 8 : 0,
         }}
         className="absolute bottom-0 left-0 right-0 rounded-t-[34px] border px-5 pt-5"
@@ -436,14 +459,20 @@ export default function RideMapScreen() {
               className="flex-row items-center gap-1 rounded-full px-3 py-1.5"
             >
               <ShieldCheck size={14} color={colors.success} />
-              <Text style={{ color: colors.success }} className="text-xs font-bold">
+              <Text
+                style={{ color: colors.success }}
+                className="text-xs font-bold"
+              >
                 Verified ride
               </Text>
             </View>
 
             <View className="flex-row items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1.5">
               <Star size={14} color="#F59E0B" fill="#F59E0B" />
-              <Text style={{ color: colors.text }} className="text-xs font-bold">
+              <Text
+                style={{ color: colors.text }}
+                className="text-xs font-bold"
+              >
                 {ride.rating.toFixed(1)}
               </Text>
             </View>
@@ -474,10 +503,16 @@ export default function RideMapScreen() {
               style={{ backgroundColor: colors.primarySoft }}
               className="rounded-2xl px-4 py-2"
             >
-              <Text style={{ color: colors.primary }} className="text-lg font-extrabold">
+              <Text
+                style={{ color: colors.primary }}
+                className="text-lg font-extrabold"
+              >
                 ₹{ride.price}
               </Text>
-              <Text style={{ color: colors.muted }} className="text-[10px] font-bold">
+              <Text
+                style={{ color: colors.muted }}
+                className="text-[10px] font-bold"
+              >
                 per KM
               </Text>
             </View>
@@ -488,7 +523,10 @@ export default function RideMapScreen() {
               style={{ backgroundColor: colors.dangerSoft }}
               className="mt-4 rounded-2xl px-4 py-3"
             >
-              <Text style={{ color: colors.danger }} className="text-xs font-bold">
+              <Text
+                style={{ color: colors.danger }}
+                className="text-xs font-bold"
+              >
                 Road route is unavailable. Showing fallback route.
               </Text>
             </View>
@@ -516,33 +554,46 @@ export default function RideMapScreen() {
             />
           </View>
 
-          <View style={{ backgroundColor: colors.input }} className="mt-5 rounded-3xl p-4">
-            <RoutePoint color={colors.primary} title={ride.pickup} subtitle="Pickup point" />
+          <View
+            style={{ backgroundColor: colors.input }}
+            className="mt-5 rounded-3xl p-4"
+          >
+            <RoutePoint
+              color={colors.primary}
+              title={ride.pickup}
+              subtitle="Pickup point"
+            />
 
             <View
               style={{ backgroundColor: colors.border }}
               className="ml-[7px] h-8 w-0.5"
             />
 
-            <RoutePoint color={colors.success} title={ride.drop} subtitle="Drop point" />
+            <RoutePoint
+              color={colors.success}
+              title={ride.drop}
+              subtitle="Drop point"
+            />
           </View>
         </ScrollView>
 
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() =>
-            router.push({
-              pathname: "/ride/[id]",
-              params: { id: ride.id },
-            })
-          }
-          style={{ backgroundColor: colors.primary }}
-          className="mt-3 rounded-2xl py-4"
-        >
-          <Text className="text-center text-base font-extrabold text-white pb-2">
-            Continue to Details
-          </Text>
-        </TouchableOpacity>
+        {!isPreviewMode && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() =>
+              router.push({
+                pathname: "/ride/[id]",
+                params: { id: ride.id },
+              })
+            }
+            style={{ backgroundColor: colors.primary }}
+            className="mt-3 rounded-2xl py-4"
+          >
+            <Text className="pb-2 text-center text-base font-extrabold text-white">
+              Continue to Details
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -591,9 +642,16 @@ function MiniInfo({
       style={{ backgroundColor: colors.input }}
       className="flex-1 items-center rounded-2xl px-2 py-3"
     >
-      {loading ? <ActivityIndicator size="small" color={colors.primary} /> : icon}
+      {loading ? (
+        <ActivityIndicator size="small" color={colors.primary} />
+      ) : (
+        icon
+      )}
 
-      <Text style={{ color: colors.muted }} className="mt-1 text-[10px] font-bold">
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-[10px] font-bold"
+      >
         {label}
       </Text>
 
@@ -627,7 +685,11 @@ function RoutePoint({
       />
 
       <View className="flex-1">
-        <Text style={{ color: colors.text }} className="font-extrabold" numberOfLines={1}>
+        <Text
+          style={{ color: colors.text }}
+          className="font-extrabold"
+          numberOfLines={1}
+        >
           {title}
         </Text>
         <Text style={{ color: colors.muted }} className="mt-1 text-xs">
