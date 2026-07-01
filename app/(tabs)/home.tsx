@@ -12,12 +12,12 @@ import { useQuery } from "@tanstack/react-query";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import {
-  Bell,
   CalendarDays,
   Car,
   Check,
   LocateFixed,
   MapPin,
+  MessageCircle,
   Minus,
   Navigation,
   Plus,
@@ -25,7 +25,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
-  X,
+  X
 } from "lucide-react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -203,6 +203,7 @@ export default function HomeScreen() {
   });
 
   const homeData = data?.data;
+  const userName = homeData?.user?.name || user?.full_name || "there";
   const apiRides = homeData?.available_rides || [];
   const rides = apiRides.map(mapApiRideToCard);
 
@@ -292,13 +293,20 @@ export default function HomeScreen() {
 
   const handleSearch = async () => {
     Keyboard.dismiss();
-
     if (!from.trim() || !to.trim()) {
       toast.error("Please enter both pickup and destination.");
       return;
     }
-
     await refetch();
+    router.push({
+      pathname: "/(tabs)/rides",
+      params: {
+        source: from.trim(),
+        destination: to.trim(),
+        ride_date: selectedDate.apiValue,
+        seats: String(seats),
+      },
+    });
   };
 
   return (
@@ -319,7 +327,7 @@ export default function HomeScreen() {
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text style={{ color: colors.muted }} className="text-sm font-medium">
-                Hello, {homeData?.user?.name || user?.full_name ||""}
+                Hello, {userName}
               </Text>
 
               <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
@@ -329,13 +337,14 @@ export default function HomeScreen() {
 
             <TouchableOpacity
               activeOpacity={0.85}
+              onPress={() => router.push("/messages" as any)}
               style={{
                 backgroundColor: colors.card,
                 borderColor: colors.border,
               }}
               className="h-12 w-12 items-center justify-center rounded-full border"
             >
-              <Bell size={21} color={colors.text} />
+              <MessageCircle size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -359,7 +368,7 @@ export default function HomeScreen() {
                   resizeMode="cover"
                   style={{
                     width: HERO_WIDTH,
-                    minHeight: 230,
+                    minHeight: Math.min(260, SCREEN_WIDTH * 0.58),
                     overflow: "hidden",
                     borderRadius: 34,
                     backgroundColor: colors.primary,
