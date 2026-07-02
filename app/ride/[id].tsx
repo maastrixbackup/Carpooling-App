@@ -69,6 +69,7 @@ export default function RideDetailsScreen() {
   const bottomBarHeight = 132 + bottomInset;
 
   const [selectedSeats, setSelectedSeats] = useState(1);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const { data, isLoading, isFetching, refetch, isError } = useQuery({
     queryKey: ["ride-details", id],
@@ -106,21 +107,27 @@ export default function RideDetailsScreen() {
   const handleBookRide = async () => {
     if (!ride || ride.seats <= 0) return;
 
-    const ok = await confirm({
-      title: "Confirm booking?",
-      message: `Book ${selectedSeats} seat${selectedSeats > 1 ? "s" : ""
-        } for ₹${totalPrice}.`,
-      confirmText: "Book Now",
-      cancelText: "Review",
-      iconType: "success",
-    });
+    setIsConfirmOpen(true);
 
-    if (!ok) return;
+    try {
+      const ok = await confirm({
+        title: "Confirm booking?",
+        message: `Book ${selectedSeats} seat${selectedSeats > 1 ? "s" : ""
+          } for ₹${totalPrice}.`,
+        confirmText: "Book Now",
+        cancelText: "Cancel",
+        iconType: "success",
+      });
 
-    bookingMutation.mutate({
-      ride_id: ride.id,
-      seats: selectedSeats,
-    });
+      if (!ok) return;
+
+      bookingMutation.mutate({
+        ride_id: ride.id,
+        seats: selectedSeats,
+      });
+    } finally {
+      setIsConfirmOpen(false);
+    }
   };
 
   if (isLoading) {
@@ -181,32 +188,32 @@ export default function RideDetailsScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: 18,
+            paddingTop: 10,
             paddingBottom: bottomBarHeight + 28,
           }}
         >
-    
+
 
           <View
             style={{ backgroundColor: colors.primary }}
-            className="mt-6 overflow-hidden rounded-[34px] p-6"
+            className="overflow-hidden rounded-[34px] p-6"
           >
             <View className="absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/10" />
             <View className="absolute -bottom-16 -left-12 h-44 w-44 rounded-full bg-white/10" />
 
             <Text className="text-sm font-bold text-blue-100">Trip Route</Text>
 
-            <Text className="mt-4 text-xl font-extrabold leading-7 text-white">
+            <Text className="mt-3 text-xl font-extrabold leading-7 text-white">
               {ride.from}
             </Text>
 
-            <Text className="my-2 text-2xl font-extrabold text-blue-100">↓</Text>
+            <Text className="my-1 text-2xl font-extrabold text-blue-100">↓</Text>
 
             <Text className="text-xl font-extrabold leading-7 text-white">
               {ride.to}
             </Text>
 
-            <View className="mt-5 flex-row flex-wrap gap-2">
+            <View className="mt-4 flex-row flex-wrap gap-2">
               <View className="flex-row items-center gap-2 rounded-full bg-white/15 px-4 py-2">
                 <Calendar size={15} color="#FFFFFF" />
                 <Text className="text-xs font-bold text-white">
@@ -222,7 +229,7 @@ export default function RideDetailsScreen() {
             </View>
           </View>
 
-          <View className="mt-5 flex-row gap-3">
+          <View className="mt-4 flex-row gap-3">
             <MiniStat
               icon={<IndianRupee size={17} color={colors.primary} />}
               label="Per KM"
@@ -253,7 +260,7 @@ export default function RideDetailsScreen() {
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={() => setSelectedSeats((prev) => Math.max(1, prev - 1))}
-                  disabled={selectedSeats <= 1}
+                  disabled={selectedSeats <= 1 || isConfirmOpen}
                   style={{
                     backgroundColor: colors.card,
                     opacity: selectedSeats <= 1 ? 0.5 : 1,
@@ -272,7 +279,7 @@ export default function RideDetailsScreen() {
                   onPress={() =>
                     setSelectedSeats((prev) => Math.min(ride.seats, prev + 1))
                   }
-                  disabled={selectedSeats >= ride.seats}
+                  disabled={selectedSeats >= ride.seats || isConfirmOpen}
                   style={{
                     backgroundColor: colors.primary,
                     opacity: selectedSeats >= ride.seats ? 0.5 : 1,
@@ -391,7 +398,7 @@ export default function RideDetailsScreen() {
             backgroundColor: colors.card,
             borderTopColor: colors.border,
             paddingBottom: Math.max(insets.bottom, 18),
-             marginBottom: Platform.OS === "android" ? 8 : 0,
+            marginBottom: Platform.OS === "android" ? 8 : 0,
           }}
           className="absolute bottom-0 left-0 right-0 border-t px-5 pt-4"
         >
@@ -417,11 +424,18 @@ export default function RideDetailsScreen() {
 
           <TouchableOpacity
             activeOpacity={0.85}
-            disabled={ride.seats <= 0 || bookingMutation.isPending}
+            disabled={
+              ride.seats <= 0 ||
+              bookingMutation.isPending ||
+              isConfirmOpen
+            }
             onPress={handleBookRide}
             style={{
               backgroundColor: ride.seats > 0 ? colors.primary : colors.muted,
-              opacity: bookingMutation.isPending ? 0.75 : 1,
+              opacity:
+                bookingMutation.isPending || isConfirmOpen
+                  ? 0.65
+                  : 1,
             }}
             className="rounded-2xl py-4"
           >
@@ -451,13 +465,13 @@ function SectionCard({
   return (
     <View
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-5 rounded-[30px] border p-5"
+      className="mt-2 rounded-[30px] border p-5"
     >
       <Text style={{ color: colors.text }} className="text-lg font-extrabold">
         {title}
       </Text>
 
-      <View className="mt-5 gap-4">{children}</View>
+      <View className="mt-4 gap-4">{children}</View>
     </View>
   );
 }
