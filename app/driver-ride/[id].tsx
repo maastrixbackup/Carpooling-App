@@ -245,18 +245,11 @@ export default function DriverRideDetailsScreen() {
 
     const handleCompleteRide = async () => {
         if (!ride) return;
-
-        const ok = await confirm({
-            title: "Complete ride?",
-            message: "This will mark the ride and related bookings as completed.",
-            confirmText: "Complete Ride",
-            cancelText: "Not Yet",
-            iconType: "success",
-        });
-
-        if (!ok) return;
-
-        completeMutation.mutate(ride.id);
+        try {
+            completeMutation.mutate(ride.id);
+        } catch (error) {
+            toast.error("Unable to complete ride.")
+        }
     };
 
     const cancelMutation = useMutation({
