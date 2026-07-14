@@ -91,6 +91,8 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         visible={visible}
         animationType="none"
         statusBarTranslucent
+        navigationBarTranslucent
+        presentationStyle="overFullScreen"
         onRequestClose={() => resolveAndClose(false)}
       >
         <Animated.View
@@ -99,15 +101,34 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           className="flex-1 justify-end"
         >
           <BlurView
-            intensity={Platform.OS === "ios" ? 28 : 18}
+            intensity={Platform.OS === "ios" ? 32 : 25}
             tint={isDark ? "dark" : "light"}
-            className="absolute inset-0"
+            experimentalBlurMethod={
+              Platform.OS === "android" ? "dimezisBlurView" : undefined
+            }
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
           />
 
           <TouchableOpacity
             activeOpacity={1}
+            disabled={loading}
             onPress={() => resolveAndClose(false)}
-            className="absolute inset-0 bg-black/25"
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              backgroundColor: isDark
+                ? "rgba(0,0,0,0.50)"
+                : "rgba(15,23,42,0.34)",
+            }}
           />
 
           <Animated.View
