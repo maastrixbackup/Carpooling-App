@@ -38,7 +38,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 type PickedPlace = {
@@ -129,6 +129,9 @@ export default function PublishRideScreen() {
   const [rideTime, setRideTime] = useState(getInitialRideTime());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const insets = useSafeAreaInsets();
+  const bottomBarHeight = 126 + Math.max(insets.bottom, 12);
 
   const selectedRoute = routes.find(
     (route) => (route.route_index ?? 0) === selectedRouteIndex,
@@ -311,8 +314,7 @@ export default function PublishRideScreen() {
 
       if (routeList.length > 0) {
         toast.success(
-          `${routeList.length} route option${
-            routeList.length > 1 ? "s" : ""
+          `${routeList.length} route option${routeList.length > 1 ? "s" : ""
           } found.`,
         );
       } else {
@@ -422,6 +424,7 @@ export default function PublishRideScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
+          <Header />
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -431,7 +434,6 @@ export default function PublishRideScreen() {
               paddingBottom: 150,
             }}
           >
-            <Header />
 
             <Card>
               <PlaceInput
@@ -787,6 +789,7 @@ export default function PublishRideScreen() {
             isFormValid={isFormValid}
             loading={publishMutation.isPending}
             onPress={handlePublish}
+            bottomInset={insets.bottom}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -979,24 +982,73 @@ function Header() {
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-1">
-        <Text style={{ color: colors.muted }} className="text-sm font-semibold">
-          Driver mode
-        </Text>
-        <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
-          Publish Ride
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-2 text-sm">
-          Create a ride listing for passengers nearby.
-        </Text>
-      </View>
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+        borderBottomWidth: 1,
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === "android" ? 10 : 8,
+        paddingBottom: 12,
+        zIndex: 50,
+        ...Platform.select({
+          ios: {
+            shadowColor: "#000000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.05,
+            shadowRadius: 7,
+          },
+          android: {
+            elevation: 3,
+          },
+        }),
+      }}
+    >
+      <View className="flex-row items-center gap-3">
+        <View
+          style={{
+            backgroundColor: colors.primarySoft,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border"
+        >
+          <Car size={21} color={colors.primary} />
+        </View>
 
-      <View
-        style={{ backgroundColor: colors.primarySoft }}
-        className="h-12 w-12 items-center justify-center rounded-full"
-      >
-        <Car size={23} color={colors.primary} />
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <Text
+              style={{ color: colors.text }}
+              className="text-xl font-extrabold"
+              numberOfLines={1}
+            >
+              Publish Ride
+            </Text>
+
+            <View
+              style={{ backgroundColor: colors.primarySoft }}
+              className="rounded-full px-2.5 py-1"
+            >
+              <Text
+                style={{ color: colors.primary }}
+                className="text-[10px] font-extrabold uppercase tracking-wide"
+              >
+                Driver
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Create a route and start earning from empty seats
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -1011,22 +1063,35 @@ function Card({ children }: { children: React.ReactNode }) {
         backgroundColor: colors.card,
         borderColor: colors.border,
       }}
-      className="rounded-[30px] border p-4"
+      className="rounded-[24px] border p-4"
     >
       {children}
     </View>
   );
 }
 
-function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionTitle({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
   const { colors } = useAppTheme();
 
   return (
-    <View className="mb-3 mt-7">
-      <Text style={{ color: colors.text }} className="text-lg font-extrabold">
+    <View className="mb-2.5 mt-5 px-0.5">
+      <Text
+        style={{ color: colors.text }}
+        className="text-[17px] font-extrabold"
+      >
         {title}
       </Text>
-      <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-xs leading-4"
+      >
         {subtitle}
       </Text>
     </View>
@@ -1052,38 +1117,64 @@ function CounterCard({
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="flex-1 rounded-[26px] border p-4"
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+      }}
+      className="flex-1 rounded-[24px] border px-4 py-5"
     >
+      {/* Header */}
       <View className="flex-row items-center gap-2">
-        {icon}
-        <Text style={{ color: colors.muted }} className="font-bold">
-          {label}
-        </Text>
+        <View
+          style={{ backgroundColor: colors.primarySoft }}
+          className="h-10 w-10 items-center justify-center rounded-2xl"
+        >
+          {icon}
+        </View>
+
+        <View className="flex-1">
+          <Text
+            style={{ color: colors.muted }}
+            className="text-xs font-bold uppercase"
+          >
+            {label}
+          </Text>
+        </View>
       </View>
 
-      <Text style={{ color: colors.text }} className="mt-4 text-3xl font-extrabold">
-        {prefix}
-        {value}
-      </Text>
-
-      <View className="mt-4 flex-row gap-2">
+      {/* Counter */}
+      <View className="mt-6 flex-row items-center justify-between">
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={onMinus}
-          style={{ backgroundColor: colors.input }}
-          className="h-12 flex-1 items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: colors.input,
+            borderColor: colors.border,
+          }}
+          className="h-12 w-12 items-center justify-center rounded-2xl border"
         >
           <Minus size={18} color={colors.text} />
         </TouchableOpacity>
 
+        <View className="items-center flex-1">
+          <Text
+            style={{ color: colors.text }}
+            className="text-[30px] font-black"
+          >
+            {prefix}
+            {value}
+          </Text>
+        </View>
+
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={onPlus}
-          style={{ backgroundColor: colors.primary }}
-          className="h-12 flex-1 items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: colors.primary,
+          }}
+          className="h-12 w-12 items-center justify-center rounded-2xl"
         >
-          <Plus size={18} color="#FFFFFF" />
+          <Plus size={18} color="#FFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -1106,7 +1197,7 @@ function SummaryCard({
   return (
     <View
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-7 rounded-[30px] border p-5"
+      className="mt-4 rounded-[30px] border p-5"
     >
       <View className="flex-row items-center justify-between">
         <View>
@@ -1130,9 +1221,8 @@ function SummaryCard({
 
       <Text style={{ color: colors.muted }} className="mt-3 text-xs leading-5">
         {selectedRoute
-          ? `${selectedRoute.distance_text || "Distance unavailable"} • ${
-              selectedRoute.duration_text || "Duration unavailable"
-            }`
+          ? `${selectedRoute.distance_text || "Distance unavailable"} • ${selectedRoute.duration_text || "Duration unavailable"
+          }`
           : "Select route to calculate full route earning."}
       </Text>
     </View>
@@ -1148,6 +1238,7 @@ function BottomPublishBar({
   pricePerKm,
   isFormValid,
   loading,
+  bottomInset,
   onPress,
 }: {
   from: string;
@@ -1158,32 +1249,70 @@ function BottomPublishBar({
   pricePerKm: number;
   isFormValid: boolean;
   loading: boolean;
+  bottomInset: number;
   onPress: () => void;
 }) {
   const { colors } = useAppTheme();
-
   return (
     <View
       style={{
         backgroundColor: colors.card,
         borderTopColor: colors.border,
+        borderTopWidth: 1,
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        // paddingBottom: Math.max(bottomInset, 14),
+        ...Platform.select({
+          ios: {
+            shadowColor: "#000000",
+            shadowOffset: {
+              width: 0,
+              height: -4,
+            },
+            shadowOpacity: 0.07,
+            shadowRadius: 12,
+          },
+          android: {
+            elevation: 12,
+          },
+        }),
       }}
-      className="absolute bottom-0 left-0 right-0 border-t px-5 pt-4"
     >
-      <View className="mb-3 flex-row items-center justify-between">
+      <View className="mb-2.5 flex-row items-center gap-12">
         <View className="flex-1">
-          <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+          <Text
+            style={{ color: colors.text }}
+            className="text-sm font-extrabold"
+            numberOfLines={1}
+          >
             {from || "From"} → {to || "To"}
           </Text>
-          <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
-            {formatDisplayDate(rideDate)} • {formatDisplayTime(rideTime)} •{" "}
-            {seats} seat{seats > 1 ? "s" : ""}
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-1 text-[11px] font-semibold"
+            numberOfLines={1}
+          >
+            {formatDisplayTime(rideTime)} • {seats} seat
+            {seats > 1 ? "s" : ""}
           </Text>
         </View>
 
-        <Text style={{ color: colors.primary }} className="text-xl font-extrabold">
-          ₹{pricePerKm}/km
-        </Text>
+        <View className="items-end">
+          <Text
+            style={{ color: colors.primary }}
+            className="text-lg font-extrabold"
+          >
+            ₹{pricePerKm}/km
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="text-[10px] font-semibold"
+          >
+            Passenger rate
+          </Text>
+        </View>
       </View>
 
       <TouchableOpacity
@@ -1191,16 +1320,23 @@ function BottomPublishBar({
         onPress={onPress}
         disabled={!isFormValid || loading}
         style={{
-          backgroundColor: isFormValid ? colors.primary : colors.muted,
+          backgroundColor: isFormValid
+            ? colors.primary
+            : colors.muted,
           opacity: loading ? 0.75 : 1,
+          minHeight: 54,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 18,
         }}
-        className="rounded-2xl py-4"
       >
         {loading ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text className="text-center text-base font-extrabold text-white">
-            Publish Ride
+          <Text className="text-base font-extrabold text-white">
+            {isFormValid
+              ? "Publish Ride"
+              : "Complete Ride Details"}
           </Text>
         )}
       </TouchableOpacity>
