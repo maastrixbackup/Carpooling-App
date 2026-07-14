@@ -20,9 +20,9 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-import { AddVehicleModal } from "./AddVehicleModal";
-import { VehicleCard } from "./VehicleCard";
-import type { Vehicle } from "./types";
+import { AddVehicleModal } from "../../src/components/vehicles/AddVehicleModal";
+import { VehicleCard } from "../../src/components/vehicles/VehicleCard";
+import type { Vehicle } from "../../src/components/vehicles/types";
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 

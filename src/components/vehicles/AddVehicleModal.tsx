@@ -2,26 +2,26 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import { BlurView } from "expo-blur";
 import * as DocumentPicker from "expo-document-picker";
 import {
-    BadgeCheck,
-    Car,
-    FileText,
-    Hash,
-    Palette,
-    Plus,
-    ShieldCheck,
-    X,
+  BadgeCheck,
+  Car,
+  FileText,
+  Hash,
+  Palette,
+  Plus,
+  ShieldCheck,
+  X,
 } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";

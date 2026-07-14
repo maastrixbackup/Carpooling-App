@@ -308,37 +308,51 @@ export default function HomeScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        {/*
-          FIX 2: KeyboardAvoidingView wraps everything but NOT with behavior=height
-          on Android — that causes the whole screen to shrink and create jitter.
-          Use padding on iOS (standard), undefined on Android and rely on
-          keyboardShouldPersistTaps + keyboardDismissMode on the ScrollView.
-        */}
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+          keyboardVerticalOffset={0}
         >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            refreshControl={
-              <RefreshControl refreshing={isFetching} onRefresh={refetch} />
-            }
-            contentContainerStyle={{
+          {/* Fixed header below the status bar */}
+          <View
+            style={{
+              backgroundColor: colors.bg,
+              borderBottomColor: colors.border,
+              borderBottomWidth: 1,
               paddingHorizontal: CONTENT_PADDING,
-              paddingTop: Platform.OS === "android" ? 16 : 12,
-              paddingBottom: Math.max(insets.bottom, 32) + 80,
+              paddingTop: Platform.OS === "android" ? 10 : 8,
+              paddingBottom: 12,
+              zIndex: 100,
+              ...Platform.select({
+                ios: {
+                  shadowColor: "#000000",
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: 0.04,
+                  shadowRadius: 5,
+                },
+                android: {
+                  elevation: 3,
+                },
+              }),
             }}
           >
-            {/* ── Header ── */}
             <View style={styles.headerRow}>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase tracking-widest">
+                <Text
+                  style={{ color: colors.muted }}
+                  className="text-xs font-bold uppercase tracking-widest"
+                >
                   PoolShare
                 </Text>
-                <Text style={{ color: colors.text }} className="mt-1 text-[28px] font-extrabold leading-tight">
+
+                <Text
+                  style={{ color: colors.text }}
+                  className="mt-1 text-[18px] font-extrabold leading-tight"
+                  numberOfLines={1}
+                >
                   Hi, {userName.split(" ")[0]} 👋
                 </Text>
               </View>
@@ -356,26 +370,42 @@ export default function HomeScreen() {
                 <MessageCircle size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
+          </View>
 
-            {/* ── Hero slider ── */}
-            {/*
-              FIX 3: Removed pagingEnabled + snapToInterval conflict — use only
-              snapToInterval with decelerationRate="fast". Added explicit height
-              via aspectRatio so ImageBackground always has room for the buttons.
-              FIX 4: Overlay is now an explicit style (not NativeWind arbitrary
-              class) so it works cross-theme reliably.
-            */}
-            <View style={{ marginTop: 20 }}>
+          {/* Only this content scrolls */}
+          <ScrollView
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            refreshControl={
+              <RefreshControl
+                refreshing={isFetching}
+                onRefresh={refetch}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            contentContainerStyle={{
+              paddingHorizontal: CONTENT_PADDING,
+              paddingTop: 12,
+              paddingBottom: Math.max(insets.bottom, 32) + 80,
+            }}
+          >
+            {/* Hero slider */}
+            <View style={{ marginTop: 8 }}>
               <FlatList
                 ref={heroListRef}
                 horizontal
                 data={heroSlides}
                 keyExtractor={(item) => item.id}
                 showsHorizontalScrollIndicator={false}
-                snapToInterval={heroWidth + 0} // gap is 0 since padding handled by parent
+                snapToInterval={heroWidth}
                 snapToAlignment="start"
                 decelerationRate="fast"
                 bounces={false}
+                nestedScrollEnabled
                 onViewableItemsChanged={onViewableItemsChanged}
                 viewabilityConfig={sliderViewabilityConfig}
                 scrollEventThrottle={16}
@@ -390,20 +420,23 @@ export default function HomeScreen() {
                     resizeMode="cover"
                     style={{
                       width: heroWidth,
-                      // FIX 3b: Fixed aspect ratio instead of minHeight so
-                      // buttons always have room — 16:9 on wide, ~0.6 on narrow
                       aspectRatio: screenWidth > 400 ? 16 / 9 : 4 / 3,
                       borderRadius: 28,
                       overflow: "hidden",
                       backgroundColor: colors.primary,
                     }}
                   >
-                    {/* FIX 4: Explicit style overlay, not NativeWind arbitrary class */}
                     <View style={StyleSheet.absoluteFill}>
-                      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.48)" }]} />
+                      <View
+                        style={[
+                          StyleSheet.absoluteFill,
+                          {
+                            backgroundColor: "rgba(0,0,0,0.48)",
+                          },
+                        ]}
+                      />
                     </View>
 
-                    {/* Decorative circles */}
                     <View
                       style={{
                         position: "absolute",
@@ -416,25 +449,31 @@ export default function HomeScreen() {
                       }}
                     />
 
-                    {/* Content — explicit flex layout, no flex-1 on image child */}
                     <View style={styles.heroContent}>
-                      {/* Badge */}
                       <View style={styles.heroBadge}>
-                        <Sparkles size={13} color="#fff" />
-                        <Text style={styles.heroBadgeText}>{item.badge}</Text>
+                        <Sparkles size={13} color="#FFFFFF" />
+
+                        <Text style={styles.heroBadgeText}>
+                          {item.badge}
+                        </Text>
                       </View>
 
-                      {/* Title + desc */}
                       <View style={{ marginTop: 12 }}>
-                        <Text style={styles.heroTitle}>{item.title}</Text>
-                        <Text style={styles.heroDesc}>{item.desc}</Text>
+                        <Text style={styles.heroTitle}>
+                          {item.title}
+                        </Text>
+
+                        <Text style={styles.heroDesc}>
+                          {item.desc}
+                        </Text>
                       </View>
 
-                      {/* Buttons — always at bottom via marginTop: "auto" */}
                       <View style={styles.heroBtnRow}>
                         <TouchableOpacity
                           activeOpacity={0.85}
-                          onPress={() => router.push("/(tabs)/publish")}
+                          onPress={() =>
+                            router.push("/(tabs)/publish")
+                          }
                           style={styles.heroBtnPrimary}
                         >
                           <Text style={styles.heroBtnPrimaryText}>
@@ -444,10 +483,14 @@ export default function HomeScreen() {
 
                         <TouchableOpacity
                           activeOpacity={0.85}
-                          onPress={() => router.push("/(tabs)/rides")}
+                          onPress={() =>
+                            router.push("/(tabs)/rides")
+                          }
                           style={styles.heroBtnGhost}
                         >
-                          <Text style={styles.heroBtnGhostText}>Find ride</Text>
+                          <Text style={styles.heroBtnGhostText}>
+                            Find ride
+                          </Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -455,7 +498,6 @@ export default function HomeScreen() {
                 )}
               />
 
-              {/* Dots */}
               <View style={styles.dotsRow}>
                 {heroSlides.map((item, index) => (
                   <View
@@ -464,7 +506,9 @@ export default function HomeScreen() {
                       styles.dot,
                       {
                         backgroundColor:
-                          activeSlide === index ? colors.primary : colors.border,
+                          activeSlide === index
+                            ? colors.primary
+                            : colors.border,
                         width: activeSlide === index ? 24 : 7,
                         opacity: activeSlide === index ? 1 : 0.5,
                       },
@@ -474,12 +518,7 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* ── Route search card ── */}
-            {/*
-              FIX 5: Replaced heading + Navigation icon row (visual noise) with
-              a tight section label. Removed "Selected trip" preview box (redundant).
-              Route strip pattern with left-rail dots + swap button.
-            */}
+            {/* Route search */}
             <View style={{ marginTop: 24 }}>
               <Text
                 style={{ color: colors.muted }}
@@ -488,7 +527,6 @@ export default function HomeScreen() {
                 Your journey
               </Text>
 
-              {/* Route strip */}
               <View
                 style={{
                   backgroundColor: colors.card,
@@ -496,22 +534,39 @@ export default function HomeScreen() {
                   borderWidth: 1,
                   borderRadius: 28,
                   overflow: "visible",
+                  zIndex: 20,
                 }}
               >
-                {/* From row */}
+                {/* From */}
                 <View style={styles.routeRow}>
-                  {/* Left rail */}
                   <View style={styles.railCol}>
-                    <View style={[styles.railDot, { backgroundColor: "#22C55E" }]} />
-                    <View style={[styles.railLine, { backgroundColor: colors.border }]} />
+                    <View
+                      style={[
+                        styles.railDot,
+                        {
+                          backgroundColor: "#22C55E",
+                        },
+                      ]}
+                    />
+
+                    <View
+                      style={[
+                        styles.railLine,
+                        {
+                          backgroundColor: colors.border,
+                        },
+                      ]}
+                    />
                   </View>
 
                   <RouteInput
                     value={from}
                     placeholder="Leaving from"
-                    onChangeText={(v) => {
-                      setFrom(v);
-                      setFromPlace({ address: v });
+                    onChangeText={(value) => {
+                      setFrom(value);
+                      setFromPlace({
+                        address: value,
+                      });
                     }}
                     onSelectPlace={(place) => {
                       setFrom(place.address);
@@ -519,7 +574,9 @@ export default function HomeScreen() {
                     }}
                     onClear={() => {
                       setFrom("");
-                      setFromPlace({ address: "" });
+                      setFromPlace({
+                        address: "",
+                      });
                     }}
                     rightAction={
                       <TouchableOpacity
@@ -530,26 +587,33 @@ export default function HomeScreen() {
                           backgroundColor: colors.input,
                           borderRadius: 20,
                           padding: 7,
+                          opacity: isLocationLoading ? 0.7 : 1,
                         }}
                       >
                         {isLocationLoading ? (
-                          <ActivityIndicator size="small" color={colors.primary} />
+                          <ActivityIndicator
+                            size="small"
+                            color={colors.primary}
+                          />
                         ) : (
-                          <LocateFixed size={16} color={colors.primary} />
+                          <LocateFixed
+                            size={16}
+                            color={colors.primary}
+                          />
                         )}
                       </TouchableOpacity>
                     }
                   />
                 </View>
 
-                {/* Divider + swap */}
                 <View
                   style={{
                     height: 1,
                     backgroundColor: colors.border,
-                    marginLeft: 20 + 12 + 12, // left-rail indent
+                    marginLeft: 44,
                   }}
                 />
+
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={handleSwap}
@@ -563,26 +627,36 @@ export default function HomeScreen() {
                     borderWidth: 1,
                     borderRadius: 16,
                     padding: 6,
-                    zIndex: 10,
+                    zIndex: 30,
                   }}
                 >
-                  <ArrowUpDown size={14} color={colors.primary} />
+                  <ArrowUpDown
+                    size={14}
+                    color={colors.primary}
+                  />
                 </TouchableOpacity>
 
-                {/* To row */}
+                {/* To */}
                 <View style={styles.routeRow}>
                   <View style={styles.railCol}>
                     <View
-                      style={[styles.railDot, { backgroundColor: colors.primary }]}
+                      style={[
+                        styles.railDot,
+                        {
+                          backgroundColor: colors.primary,
+                        },
+                      ]}
                     />
                   </View>
 
                   <RouteInput
                     value={to}
                     placeholder="Going to"
-                    onChangeText={(v) => {
-                      setTo(v);
-                      setToPlace({ address: v });
+                    onChangeText={(value) => {
+                      setTo(value);
+                      setToPlace({
+                        address: value,
+                      });
                     }}
                     onSelectPlace={(place) => {
                       setTo(place.address);
@@ -590,14 +664,22 @@ export default function HomeScreen() {
                     }}
                     onClear={() => {
                       setTo("");
-                      setToPlace({ address: "" });
+                      setToPlace({
+                        address: "",
+                      });
                     }}
                   />
                 </View>
               </View>
 
-              {/* Date + Seats row */}
-              <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+              {/* Date and seats */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  gap: 12,
+                  marginTop: 12,
+                }}
+              >
                 <TouchableOpacity
                   activeOpacity={0.85}
                   onPress={() => setDateModalVisible(true)}
@@ -614,13 +696,29 @@ export default function HomeScreen() {
                     gap: 8,
                   }}
                 >
-                  <CalendarDays size={16} color={colors.primary} />
+                  <CalendarDays
+                    size={16}
+                    color={colors.primary}
+                  />
+
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.muted, fontSize: 10, fontWeight: "700" }}>
+                    <Text
+                      style={{
+                        color: colors.muted,
+                        fontSize: 10,
+                        fontWeight: "700",
+                      }}
+                    >
                       DATE
                     </Text>
+
                     <Text
-                      style={{ color: colors.text, fontWeight: "700", fontSize: 13, marginTop: 2 }}
+                      style={{
+                        color: colors.text,
+                        fontWeight: "700",
+                        fontSize: 13,
+                        marginTop: 2,
+                      }}
                       numberOfLines={1}
                     >
                       {selectedDate.label} · {selectedDate.dateText}
@@ -628,10 +726,14 @@ export default function HomeScreen() {
                   </View>
                 </TouchableOpacity>
 
-                <SeatSelector seats={seats} setSeats={setSeats} colors={colors} />
+                <SeatSelector
+                  seats={seats}
+                  setSeats={setSeats}
+                  colors={colors}
+                />
               </View>
 
-              {/* Search button */}
+              {/* Search */}
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={handleSearch}
@@ -639,7 +741,7 @@ export default function HomeScreen() {
                 style={{
                   backgroundColor: colors.primary,
                   borderRadius: 20,
-                  paddingVertical: 16,
+                  minHeight: 54,
                   marginTop: 12,
                   opacity: isFetching ? 0.8 : 1,
                   flexDirection: "row",
@@ -652,8 +754,15 @@ export default function HomeScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <>
-                    <Search size={18} color="#fff" />
-                    <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800" }}>
+                    <Search size={18} color="#FFFFFF" />
+
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 15,
+                        fontWeight: "800",
+                      }}
+                    >
                       Search rides
                     </Text>
                   </>
@@ -661,11 +770,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* ── Trust pills ── */}
-            {/*
-              FIX 6: Replaced two bordered InfoPill cards with a single inline
-              bar — quieter, less template-y, same information.
-            */}
+            {/* Trust information */}
             <View
               style={{
                 flexDirection: "row",
@@ -675,22 +780,60 @@ export default function HomeScreen() {
                 paddingHorizontal: 4,
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <ShieldCheck size={14} color={colors.success} />
-                <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "600" }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <ShieldCheck
+                  size={14}
+                  color={colors.success}
+                />
+
+                <Text
+                  style={{
+                    color: colors.muted,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
                   Verified users
                 </Text>
               </View>
-              <View style={{ width: 1, height: 14, backgroundColor: colors.border }} />
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+
+              <View
+                style={{
+                  width: 1,
+                  height: 14,
+                  backgroundColor: colors.border,
+                }}
+              />
+
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
                 <Car size={14} color={colors.primary} />
-                <Text style={{ color: colors.muted, fontSize: 12, fontWeight: "600" }}>
-                  {rides.length} live {rides.length === 1 ? "ride" : "rides"}
+
+                <Text
+                  style={{
+                    color: colors.muted,
+                    fontSize: 12,
+                    fontWeight: "600",
+                  }}
+                >
+                  {rides.length} live{" "}
+                  {rides.length === 1 ? "ride" : "rides"}
                 </Text>
               </View>
             </View>
 
-            {/* ── Available rides ── */}
+            {/* Available rides header */}
             <View
               style={{
                 flexDirection: "row",
@@ -700,32 +843,59 @@ export default function HomeScreen() {
                 marginBottom: 16,
               }}
             >
-              <View>
-                <Text style={{ color: colors.text, fontSize: 18, fontWeight: "800" }}>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: colors.text,
+                    fontSize: 18,
+                    fontWeight: "800",
+                  }}
+                >
                   Available rides
                 </Text>
-                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>
+
+                <Text
+                  style={{
+                    color: colors.muted,
+                    fontSize: 12,
+                    marginTop: 2,
+                  }}
+                >
                   {isLoading
                     ? "Looking for rides…"
-                    : `${rides.length} ride${rides.length === 1 ? "" : "s"} near your route`}
+                    : `${rides.length} ride${rides.length === 1 ? "" : "s"
+                    } near your route`}
                 </Text>
               </View>
+
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => router.push("/(tabs)/rides")}
+                onPress={() =>
+                  router.push("/(tabs)/rides")
+                }
               >
-                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontWeight: "700",
+                    fontSize: 13,
+                  }}
+                >
                   See all
                 </Text>
               </TouchableOpacity>
             </View>
 
+            {/* Ride cards */}
             {isLoading ? (
               <HomeLoadingCard colors={colors} />
             ) : rides.length > 0 ? (
               <View style={{ gap: 12 }}>
                 {rides.map((ride: any) => (
-                  <RideCard key={ride.id} ride={ride} />
+                  <RideCard
+                    key={ride.id}
+                    ride={ride}
+                  />
                 ))}
               </View>
             ) : (
