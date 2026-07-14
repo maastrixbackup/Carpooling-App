@@ -3,18 +3,18 @@ import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import React, { createContext, useContext, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Modal,
-    Platform,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Modal,
+  Platform,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import Animated, {
-    FadeIn,
-    FadeOut,
-    SlideInDown,
-    SlideOutDown,
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
 } from "react-native-reanimated";
 
 type ConfirmOptions = {
