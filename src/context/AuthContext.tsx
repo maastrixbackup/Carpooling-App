@@ -1,4 +1,4 @@
-import { logger } from "@/lib/logger";
+import { APIlogger } from "@/lib/logger";
 import {
   clearAuthTokens,
   getAccessToken,
@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (payload: LoginPayload) => {
     const response = await loginApi(payload);
-    logger.auth("LOGIN SUCCESS", response);
+    APIlogger.auth("LOGIN SUCCESS", response);
     const { accessToken, refreshToken } = extractTokens(response);
 
     await saveAuthTokens({

@@ -1,3 +1,4 @@
+import { logger } from "@rudranarayan01/logaccent";
 const colors = {
   reset: "\x1b[0m",
   red: "\x1b[31m",
@@ -8,24 +9,23 @@ const colors = {
   magenta: "\x1b[35m",
 };
 
-export const logger = {
+export const APIlogger = {
   request(url: string, method: string, payload?: any) {
-    console.log(`${colors.cyan}[API REQUEST]${colors.reset}`, method, url);
+    logger.info(`${colors.cyan}[API REQUEST]${colors.reset}`, method, url);
 
     if (payload) {
-      console.log(`${colors.blue}[REQUEST BODY]${colors.reset}`, payload);
+      logger.info(`${colors.blue}[REQUEST BODY]${colors.reset}`, payload);
     }
   },
 
   response(url: string, data: any) {
-    console.log(`${colors.green}[API SUCCESS]${colors.reset}`, url);
+    logger.success(`${colors.green}[API SUCCESS]${colors.reset}`, url);
 
     // console.log(data);
   },
 
   error(url: string, error: any) {
-    console.log(`${colors.red}[API ERROR]${colors.reset}`, url);
-
+    logger.error(`${colors.red}[API ERROR]${colors.reset}`, url);
     console.log(error);
   },
 
