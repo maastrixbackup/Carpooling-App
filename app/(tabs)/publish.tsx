@@ -22,9 +22,8 @@ import {
   Minus,
   Plus,
   Route,
-  Search,
   Users,
-  X,
+  X
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -435,42 +434,42 @@ export default function PublishRideScreen() {
             }}
           >
 
-            <Card>
-              <PlaceInput
-                icon={<MapPin size={18} color={colors.primary} />}
-                label="From"
-                value={from}
-                onChangeText={(value) => {
-                  setFrom(value);
-                  setFromPlace({ address: value });
-                  clearRoutes();
-                }}
-                onSelectPlace={(place) => {
-                  setFrom(place.address);
-                  setFromPlace(place);
-                  clearRoutes();
-                }}
-                onDetectLocation={handleDetectLocation}
-                isLoading={isLocationLoading}
-              />
-
-              <PlaceInput
-                icon={<Search size={18} color={colors.success} />}
-                label="To"
-                value={to}
-                onChangeText={(value) => {
-                  setTo(value);
-                  setToPlace({ address: value });
-                  clearRoutes();
-                }}
-                onSelectPlace={(place) => {
-                  setTo(place.address);
-                  setToPlace(place);
-                  clearRoutes();
-                }}
-                last
-              />
-            </Card>
+            <PublishRouteInputCard
+              from={from}
+              to={to}
+              onChangeFrom={(value) => {
+                setFrom(value);
+                setFromPlace({ address: value });
+                clearRoutes();
+              }}
+              onChangeTo={(value) => {
+                setTo(value);
+                setToPlace({ address: value });
+                clearRoutes();
+              }}
+              onSelectFrom={(place) => {
+                setFrom(place.address);
+                setFromPlace(place);
+                clearRoutes();
+              }}
+              onSelectTo={(place) => {
+                setTo(place.address);
+                setToPlace(place);
+                clearRoutes();
+              }}
+              onClearFrom={() => {
+                setFrom("");
+                setFromPlace({ address: "" });
+                clearRoutes();
+              }}
+              onClearTo={() => {
+                setTo("");
+                setToPlace({ address: "" });
+                clearRoutes();
+              }}
+              onDetectLocation={handleDetectLocation}
+              isLocationLoading={isLocationLoading}
+            />
 
             <SectionTitle
               title="Route Selection"
@@ -498,7 +497,7 @@ export default function PublishRideScreen() {
               </TouchableOpacity>
 
               {routes.length > 0 && (
-                <View className="mt-4 gap-3">
+                <View className="mt-2 gap-3">
                   {routes.map((route, index) => {
                     const routeIndex = route.route_index ?? index;
                     const selected = selectedRouteIndex === routeIndex;
@@ -572,7 +571,7 @@ export default function PublishRideScreen() {
                 activeOpacity={0.85}
                 onPress={() => setShowDatePicker(true)}
                 style={{ backgroundColor: colors.input }}
-                className="mb-4 flex-row items-center gap-3 rounded-2xl px-4 py-4"
+                className="mb-4 flex-row items-center gap-3 rounded-2xl px-4"
               >
                 <CalendarDays size={20} color={colors.primary} />
 
@@ -647,7 +646,7 @@ export default function PublishRideScreen() {
 
             <Card>
               {vehiclesLoading ? (
-                <View className="items-center py-4">
+                <View className="items-center py-2">
                   <ActivityIndicator color={colors.primary} />
                   <Text style={{ color: colors.muted }} className="mt-2 text-xs font-bold">
                     Loading vehicles...
@@ -1197,7 +1196,7 @@ function SummaryCard({
   return (
     <View
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-4 rounded-[30px] border p-5"
+      className=" rounded-[30px] border p-5"
     >
       <View className="flex-row items-center justify-between">
         <View>
@@ -1340,6 +1339,408 @@ function BottomPublishBar({
           </Text>
         )}
       </TouchableOpacity>
+    </View>
+  );
+}
+
+
+function ConnectedPlaceInput({
+  value,
+  placeholder,
+  onChangeText,
+  onSelectPlace,
+  onClear,
+  rightAction,
+}: {
+  value: string;
+  placeholder: string;
+  onChangeText: (value: string) => void;
+  onSelectPlace: (place: PickedPlace) => void;
+  onClear: () => void;
+  rightAction?: React.ReactNode;
+}) {
+  const { colors } = useAppTheme();
+
+  const [focused, setFocused] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const timer = setTimeout(async () => {
+      try {
+        if (!focused || value.trim().length < 2) {
+          if (mounted) {
+            setSuggestions([]);
+          }
+          return;
+        }
+
+        setSearching(true);
+
+        const results = await searchIndiaPlaces(value);
+
+        if (mounted) {
+          setSuggestions(results);
+        }
+      } catch (error) {
+        console.log("PLACE SEARCH ERROR:", error);
+
+        if (mounted) {
+          setSuggestions([]);
+        }
+      } finally {
+        if (mounted) {
+          setSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [focused, value]);
+
+  const handleSelect = async (place: PlaceSuggestion) => {
+    try {
+      setSearching(true);
+
+      const details = await getPlaceDetails(place.place_id);
+
+      onSelectPlace({
+        address: details.address,
+        placeId: details.placeId,
+        latitude: details.latitude,
+        longitude: details.longitude,
+      });
+
+      setSuggestions([]);
+      setFocused(false);
+      Keyboard.dismiss();
+    } catch (error) {
+      console.log("PLACE DETAILS ERROR:", error);
+      toast.error("Unable to select this location.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        position: "relative",
+        zIndex: focused ? 999 : 1,
+      }}
+    >
+      <View
+        style={{
+          height: 56,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <TextInput
+          value={value}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setTimeout(() => {
+              setFocused(false);
+            }, 180);
+          }}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          autoCorrect={false}
+          returnKeyType="next"
+          style={{
+            flex: 1,
+            height: "100%",
+            color: colors.text,
+            fontSize: 15,
+            fontWeight: "600",
+            paddingVertical: 0,
+          }}
+        />
+
+        {searching ? (
+          <ActivityIndicator
+            size="small"
+            color={colors.primary}
+            style={{ marginLeft: 8 }}
+          />
+        ) : value.length > 0 ? (
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => {
+              onClear();
+              setSuggestions([]);
+            }}
+            style={{
+              width: 28,
+              height: 28,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 14,
+              backgroundColor: colors.input,
+              marginLeft: 8,
+            }}
+          >
+            <X size={13} color={colors.muted} />
+          </TouchableOpacity>
+        ) : null}
+
+        {rightAction}
+      </View>
+
+      {focused && suggestions.length > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            top: 58,
+            left: -48,
+            right: -16,
+            maxHeight: 260,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderWidth: 1,
+            borderRadius: 18,
+            overflow: "hidden",
+            zIndex: 9999,
+            elevation: 16,
+            ...Platform.select({
+              ios: {
+                shadowColor: "#000000",
+                shadowOffset: {
+                  width: 0,
+                  height: 6,
+                },
+                shadowOpacity: 0.13,
+                shadowRadius: 16,
+              },
+            }),
+          }}
+        >
+          <ScrollView
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="always"
+            showsVerticalScrollIndicator={false}
+          >
+            {suggestions.slice(0, 5).map((item, index) => (
+              <TouchableOpacity
+                key={item.place_id}
+                activeOpacity={0.8}
+                onPress={() => handleSelect(item)}
+                style={{
+                  minHeight: 58,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 11,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderBottomWidth:
+                    index < Math.min(suggestions.length, 5) - 1 ? 1 : 0,
+                  borderBottomColor: colors.border,
+                }}
+              >
+                <View
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    backgroundColor: colors.primarySoft,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MapPin size={15} color={colors.primary} />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 13,
+                      fontWeight: "700",
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.main_text}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: colors.muted,
+                      fontSize: 11,
+                      marginTop: 3,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.secondary_text || item.description}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
+
+function PublishRouteInputCard({
+  from,
+  to,
+  onChangeFrom,
+  onChangeTo,
+  onSelectFrom,
+  onSelectTo,
+  onClearFrom,
+  onClearTo,
+  onDetectLocation,
+  isLocationLoading,
+}: {
+  from: string;
+  to: string;
+  onChangeFrom: (value: string) => void;
+  onChangeTo: (value: string) => void;
+  onSelectFrom: (place: PickedPlace) => void;
+  onSelectTo: (place: PickedPlace) => void;
+  onClearFrom: () => void;
+  onClearTo: () => void;
+  onDetectLocation: () => void;
+  isLocationLoading: boolean;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: 24,
+        zIndex: 100,
+        elevation: 5,
+      }}
+    >
+      {/* Pickup row */}
+      <View
+        style={{
+          minHeight: 58,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          zIndex: 110,
+        }}
+      >
+        <View
+          style={{
+            width: 20,
+            alignItems: "center",
+            marginRight: 12,
+          }}
+        >
+          <View
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: colors.primary,
+            }}
+          />
+        </View>
+
+        <ConnectedPlaceInput
+          value={from}
+          placeholder="Pickup location"
+          onChangeText={onChangeFrom}
+          onSelectPlace={onSelectFrom}
+          onClear={onClearFrom}
+          rightAction={
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onDetectLocation}
+              disabled={isLocationLoading}
+              style={{
+                width: 34,
+                height: 34,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 17,
+                backgroundColor: colors.primarySoft,
+                marginLeft: 8,
+                opacity: isLocationLoading ? 0.65 : 1,
+              }}
+            >
+              {isLocationLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <LocateFixed size={17} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          }
+        />
+      </View>
+
+      {/* Dashed route connector */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 25.5,
+          top: 39,
+          bottom: 39,
+          width: 1,
+          borderLeftWidth: 1,
+          borderLeftColor: colors.border,
+          borderStyle: "dashed",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Destination row */}
+      <View
+        style={{
+          minHeight: 58,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          zIndex: 90,
+        }}
+      >
+        <View
+          style={{
+            width: 20,
+            alignItems: "center",
+            marginRight: 12,
+          }}
+        >
+          <View
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              backgroundColor: colors.card,
+            }}
+          />
+        </View>
+
+        <ConnectedPlaceInput
+          value={to}
+          placeholder="Destination"
+          onChangeText={onChangeTo}
+          onSelectPlace={onSelectTo}
+          onClear={onClearTo}
+        />
+      </View>
     </View>
   );
 }
