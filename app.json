@@ -15,6 +15,7 @@
         "foregroundImage": "./assets/icons/adaptive.png",
         "backgroundColor": "#ffffff"
       },
+      "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
       "package": "com.pintu7787.carpooling",
       "googleServicesFile": "./google-services.json",
@@ -33,13 +34,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#020817",
-          "image": "./assets/images/notification-icon.png",
-          "imageWidth": 135,
           "resizeMode": "contain",
           "dark": {
             "backgroundColor": "#020817",
-            "image": "./assets/images/notification-icon.png",
-            "imageWidth": 135,
             "resizeMode": "contain"
           }
         }

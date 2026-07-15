@@ -24,16 +24,6 @@ function AppContent() {
   useNotificationListeners();
 
   useEffect(() => {
-    async function hideNativeSplash() {
-      try {
-        await SplashScreen.hideAsync();
-      } catch { }
-    }
-
-    hideNativeSplash();
-  }, []);
-
-  useEffect(() => {
     if (!isAuthenticated || !user) return;
     registerAndSavePushTokenAsync({
       useDemoToken: false,
@@ -45,7 +35,14 @@ function AppContent() {
   if (showSplash) {
     return (
       <CustomSplashScreen
-        onFinish={() => setIsSplashTimingComplete(true)}
+        onFinish={async () => {
+          setIsSplashTimingComplete(true);
+          try {
+            await SplashScreen.hideAsync();
+          } catch (e) {
+            console.warn("Failed to hide native splash:", e);
+          }
+        }}
       />
     );
   }
