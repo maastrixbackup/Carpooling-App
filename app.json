@@ -31,20 +31,9 @@
     "plugins": [
       "expo-router",
       [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#020817",
-          "resizeMode": "contain",
-          "dark": {
-            "backgroundColor": "#020817",
-            "resizeMode": "contain"
-          }
-        }
-      ],
-      [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Allow Car Pooling to use your location to find nearby rides."
+          "locationWhenInUsePermission": "Allow PoolShare to use your location to find nearby rides."
         }
       ],
       [
