@@ -22,9 +22,8 @@ import {
   Minus,
   Plus,
   Route,
-  Search,
   Users,
-  X,
+  X
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -38,7 +37,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 type PickedPlace = {
@@ -129,6 +128,9 @@ export default function PublishRideScreen() {
   const [rideTime, setRideTime] = useState(getInitialRideTime());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const insets = useSafeAreaInsets();
+  const bottomBarHeight = 126 + Math.max(insets.bottom, 12);
 
   const selectedRoute = routes.find(
     (route) => (route.route_index ?? 0) === selectedRouteIndex,
@@ -311,8 +313,7 @@ export default function PublishRideScreen() {
 
       if (routeList.length > 0) {
         toast.success(
-          `${routeList.length} route option${
-            routeList.length > 1 ? "s" : ""
+          `${routeList.length} route option${routeList.length > 1 ? "s" : ""
           } found.`,
         );
       } else {
@@ -422,6 +423,7 @@ export default function PublishRideScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={{ flex: 1 }}
         >
+          <Header />
           <ScrollView
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -431,44 +433,43 @@ export default function PublishRideScreen() {
               paddingBottom: 150,
             }}
           >
-            <Header />
 
-            <Card>
-              <PlaceInput
-                icon={<MapPin size={18} color={colors.primary} />}
-                label="From"
-                value={from}
-                onChangeText={(value) => {
-                  setFrom(value);
-                  setFromPlace({ address: value });
-                  clearRoutes();
-                }}
-                onSelectPlace={(place) => {
-                  setFrom(place.address);
-                  setFromPlace(place);
-                  clearRoutes();
-                }}
-                onDetectLocation={handleDetectLocation}
-                isLoading={isLocationLoading}
-              />
-
-              <PlaceInput
-                icon={<Search size={18} color={colors.success} />}
-                label="To"
-                value={to}
-                onChangeText={(value) => {
-                  setTo(value);
-                  setToPlace({ address: value });
-                  clearRoutes();
-                }}
-                onSelectPlace={(place) => {
-                  setTo(place.address);
-                  setToPlace(place);
-                  clearRoutes();
-                }}
-                last
-              />
-            </Card>
+            <PublishRouteInputCard
+              from={from}
+              to={to}
+              onChangeFrom={(value) => {
+                setFrom(value);
+                setFromPlace({ address: value });
+                clearRoutes();
+              }}
+              onChangeTo={(value) => {
+                setTo(value);
+                setToPlace({ address: value });
+                clearRoutes();
+              }}
+              onSelectFrom={(place) => {
+                setFrom(place.address);
+                setFromPlace(place);
+                clearRoutes();
+              }}
+              onSelectTo={(place) => {
+                setTo(place.address);
+                setToPlace(place);
+                clearRoutes();
+              }}
+              onClearFrom={() => {
+                setFrom("");
+                setFromPlace({ address: "" });
+                clearRoutes();
+              }}
+              onClearTo={() => {
+                setTo("");
+                setToPlace({ address: "" });
+                clearRoutes();
+              }}
+              onDetectLocation={handleDetectLocation}
+              isLocationLoading={isLocationLoading}
+            />
 
             <SectionTitle
               title="Route Selection"
@@ -496,7 +497,7 @@ export default function PublishRideScreen() {
               </TouchableOpacity>
 
               {routes.length > 0 && (
-                <View className="mt-4 gap-3">
+                <View className="mt-2 gap-3">
                   {routes.map((route, index) => {
                     const routeIndex = route.route_index ?? index;
                     const selected = selectedRouteIndex === routeIndex;
@@ -570,7 +571,7 @@ export default function PublishRideScreen() {
                 activeOpacity={0.85}
                 onPress={() => setShowDatePicker(true)}
                 style={{ backgroundColor: colors.input }}
-                className="mb-4 flex-row items-center gap-3 rounded-2xl px-4 py-4"
+                className="mb-4 flex-row items-center gap-3 rounded-2xl px-4"
               >
                 <CalendarDays size={20} color={colors.primary} />
 
@@ -645,7 +646,7 @@ export default function PublishRideScreen() {
 
             <Card>
               {vehiclesLoading ? (
-                <View className="items-center py-4">
+                <View className="items-center py-2">
                   <ActivityIndicator color={colors.primary} />
                   <Text style={{ color: colors.muted }} className="mt-2 text-xs font-bold">
                     Loading vehicles...
@@ -787,6 +788,7 @@ export default function PublishRideScreen() {
             isFormValid={isFormValid}
             loading={publishMutation.isPending}
             onPress={handlePublish}
+            bottomInset={insets.bottom}
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -979,24 +981,73 @@ function Header() {
   const { colors } = useAppTheme();
 
   return (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-1">
-        <Text style={{ color: colors.muted }} className="text-sm font-semibold">
-          Driver mode
-        </Text>
-        <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold">
-          Publish Ride
-        </Text>
-        <Text style={{ color: colors.muted }} className="mt-2 text-sm">
-          Create a ride listing for passengers nearby.
-        </Text>
-      </View>
+    <View
+      style={{
+        backgroundColor: colors.bg,
+        borderBottomColor: colors.border,
+        borderBottomWidth: 1,
+        paddingHorizontal: 20,
+        paddingTop: Platform.OS === "android" ? 10 : 8,
+        paddingBottom: 12,
+        zIndex: 50,
+        ...Platform.select({
+          ios: {
+            shadowColor: "#000000",
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.05,
+            shadowRadius: 7,
+          },
+          android: {
+            elevation: 3,
+          },
+        }),
+      }}
+    >
+      <View className="flex-row items-center gap-3">
+        <View
+          style={{
+            backgroundColor: colors.primarySoft,
+            borderColor: colors.border,
+          }}
+          className="h-11 w-11 items-center justify-center rounded-2xl border"
+        >
+          <Car size={21} color={colors.primary} />
+        </View>
 
-      <View
-        style={{ backgroundColor: colors.primarySoft }}
-        className="h-12 w-12 items-center justify-center rounded-full"
-      >
-        <Car size={23} color={colors.primary} />
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <Text
+              style={{ color: colors.text }}
+              className="text-xl font-extrabold"
+              numberOfLines={1}
+            >
+              Publish Ride
+            </Text>
+
+            <View
+              style={{ backgroundColor: colors.primarySoft }}
+              className="rounded-full px-2.5 py-1"
+            >
+              <Text
+                style={{ color: colors.primary }}
+                className="text-[10px] font-extrabold uppercase tracking-wide"
+              >
+                Driver
+              </Text>
+            </View>
+          </View>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-0.5 text-xs font-semibold"
+            numberOfLines={1}
+          >
+            Create a route and start earning from empty seats
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -1011,22 +1062,35 @@ function Card({ children }: { children: React.ReactNode }) {
         backgroundColor: colors.card,
         borderColor: colors.border,
       }}
-      className="rounded-[30px] border p-4"
+      className="rounded-[24px] border p-4"
     >
       {children}
     </View>
   );
 }
 
-function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionTitle({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
   const { colors } = useAppTheme();
 
   return (
-    <View className="mb-3 mt-7">
-      <Text style={{ color: colors.text }} className="text-lg font-extrabold">
+    <View className="mb-2.5 mt-5 px-0.5">
+      <Text
+        style={{ color: colors.text }}
+        className="text-[17px] font-extrabold"
+      >
         {title}
       </Text>
-      <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-1 text-xs leading-4"
+      >
         {subtitle}
       </Text>
     </View>
@@ -1052,38 +1116,64 @@ function CounterCard({
 
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="flex-1 rounded-[26px] border p-4"
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+      }}
+      className="flex-1 rounded-[24px] border px-4 py-5"
     >
+      {/* Header */}
       <View className="flex-row items-center gap-2">
-        {icon}
-        <Text style={{ color: colors.muted }} className="font-bold">
-          {label}
-        </Text>
+        <View
+          style={{ backgroundColor: colors.primarySoft }}
+          className="h-10 w-10 items-center justify-center rounded-2xl"
+        >
+          {icon}
+        </View>
+
+        <View className="flex-1">
+          <Text
+            style={{ color: colors.muted }}
+            className="text-xs font-bold uppercase"
+          >
+            {label}
+          </Text>
+        </View>
       </View>
 
-      <Text style={{ color: colors.text }} className="mt-4 text-3xl font-extrabold">
-        {prefix}
-        {value}
-      </Text>
-
-      <View className="mt-4 flex-row gap-2">
+      {/* Counter */}
+      <View className="mt-6 flex-row items-center justify-between">
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={onMinus}
-          style={{ backgroundColor: colors.input }}
-          className="h-12 flex-1 items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: colors.input,
+            borderColor: colors.border,
+          }}
+          className="h-12 w-12 items-center justify-center rounded-2xl border"
         >
           <Minus size={18} color={colors.text} />
         </TouchableOpacity>
 
+        <View className="items-center flex-1">
+          <Text
+            style={{ color: colors.text }}
+            className="text-[30px] font-black"
+          >
+            {prefix}
+            {value}
+          </Text>
+        </View>
+
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={onPlus}
-          style={{ backgroundColor: colors.primary }}
-          className="h-12 flex-1 items-center justify-center rounded-2xl"
+          style={{
+            backgroundColor: colors.primary,
+          }}
+          className="h-12 w-12 items-center justify-center rounded-2xl"
         >
-          <Plus size={18} color="#FFFFFF" />
+          <Plus size={18} color="#FFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -1106,7 +1196,7 @@ function SummaryCard({
   return (
     <View
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-7 rounded-[30px] border p-5"
+      className=" rounded-[30px] border p-5"
     >
       <View className="flex-row items-center justify-between">
         <View>
@@ -1130,9 +1220,8 @@ function SummaryCard({
 
       <Text style={{ color: colors.muted }} className="mt-3 text-xs leading-5">
         {selectedRoute
-          ? `${selectedRoute.distance_text || "Distance unavailable"} • ${
-              selectedRoute.duration_text || "Duration unavailable"
-            }`
+          ? `${selectedRoute.distance_text || "Distance unavailable"} • ${selectedRoute.duration_text || "Duration unavailable"
+          }`
           : "Select route to calculate full route earning."}
       </Text>
     </View>
@@ -1148,6 +1237,7 @@ function BottomPublishBar({
   pricePerKm,
   isFormValid,
   loading,
+  bottomInset,
   onPress,
 }: {
   from: string;
@@ -1158,32 +1248,70 @@ function BottomPublishBar({
   pricePerKm: number;
   isFormValid: boolean;
   loading: boolean;
+  bottomInset: number;
   onPress: () => void;
 }) {
   const { colors } = useAppTheme();
-
   return (
     <View
       style={{
         backgroundColor: colors.card,
         borderTopColor: colors.border,
+        borderTopWidth: 1,
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        // paddingBottom: Math.max(bottomInset, 14),
+        ...Platform.select({
+          ios: {
+            shadowColor: "#000000",
+            shadowOffset: {
+              width: 0,
+              height: -4,
+            },
+            shadowOpacity: 0.07,
+            shadowRadius: 12,
+          },
+          android: {
+            elevation: 12,
+          },
+        }),
       }}
-      className="absolute bottom-0 left-0 right-0 border-t px-5 pt-4"
     >
-      <View className="mb-3 flex-row items-center justify-between">
+      <View className="mb-2.5 flex-row items-center gap-12">
         <View className="flex-1">
-          <Text style={{ color: colors.muted }} className="text-xs font-bold uppercase">
+          <Text
+            style={{ color: colors.text }}
+            className="text-sm font-extrabold"
+            numberOfLines={1}
+          >
             {from || "From"} → {to || "To"}
           </Text>
-          <Text style={{ color: colors.text }} className="mt-1 font-extrabold">
-            {formatDisplayDate(rideDate)} • {formatDisplayTime(rideTime)} •{" "}
-            {seats} seat{seats > 1 ? "s" : ""}
+
+          <Text
+            style={{ color: colors.muted }}
+            className="mt-1 text-[11px] font-semibold"
+            numberOfLines={1}
+          >
+            {formatDisplayTime(rideTime)} • {seats} seat
+            {seats > 1 ? "s" : ""}
           </Text>
         </View>
 
-        <Text style={{ color: colors.primary }} className="text-xl font-extrabold">
-          ₹{pricePerKm}/km
-        </Text>
+        <View className="items-end">
+          <Text
+            style={{ color: colors.primary }}
+            className="text-lg font-extrabold"
+          >
+            ₹{pricePerKm}/km
+          </Text>
+
+          <Text
+            style={{ color: colors.muted }}
+            className="text-[10px] font-semibold"
+          >
+            Passenger rate
+          </Text>
+        </View>
       </View>
 
       <TouchableOpacity
@@ -1191,19 +1319,428 @@ function BottomPublishBar({
         onPress={onPress}
         disabled={!isFormValid || loading}
         style={{
-          backgroundColor: isFormValid ? colors.primary : colors.muted,
+          backgroundColor: isFormValid
+            ? colors.primary
+            : colors.muted,
           opacity: loading ? 0.75 : 1,
+          minHeight: 54,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 18,
         }}
-        className="rounded-2xl py-4"
       >
         {loading ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text className="text-center text-base font-extrabold text-white">
-            Publish Ride
+          <Text className="text-base font-extrabold text-white">
+            {isFormValid
+              ? "Publish Ride"
+              : "Complete Ride Details"}
           </Text>
         )}
       </TouchableOpacity>
+    </View>
+  );
+}
+
+
+function ConnectedPlaceInput({
+  value,
+  placeholder,
+  onChangeText,
+  onSelectPlace,
+  onClear,
+  rightAction,
+}: {
+  value: string;
+  placeholder: string;
+  onChangeText: (value: string) => void;
+  onSelectPlace: (place: PickedPlace) => void;
+  onClear: () => void;
+  rightAction?: React.ReactNode;
+}) {
+  const { colors } = useAppTheme();
+
+  const [focused, setFocused] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const timer = setTimeout(async () => {
+      try {
+        if (!focused || value.trim().length < 2) {
+          if (mounted) {
+            setSuggestions([]);
+          }
+          return;
+        }
+
+        setSearching(true);
+
+        const results = await searchIndiaPlaces(value);
+
+        if (mounted) {
+          setSuggestions(results);
+        }
+      } catch (error) {
+        console.log("PLACE SEARCH ERROR:", error);
+
+        if (mounted) {
+          setSuggestions([]);
+        }
+      } finally {
+        if (mounted) {
+          setSearching(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [focused, value]);
+
+  const handleSelect = async (place: PlaceSuggestion) => {
+    try {
+      setSearching(true);
+
+      const details = await getPlaceDetails(place.place_id);
+
+      onSelectPlace({
+        address: details.address,
+        placeId: details.placeId,
+        latitude: details.latitude,
+        longitude: details.longitude,
+      });
+
+      setSuggestions([]);
+      setFocused(false);
+      Keyboard.dismiss();
+    } catch (error) {
+      console.log("PLACE DETAILS ERROR:", error);
+      toast.error("Unable to select this location.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        position: "relative",
+        zIndex: focused ? 999 : 1,
+      }}
+    >
+      <View
+        style={{
+          height: 56,
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <TextInput
+          value={value}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setTimeout(() => {
+              setFocused(false);
+            }, 180);
+          }}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          autoCorrect={false}
+          returnKeyType="next"
+          style={{
+            flex: 1,
+            height: "100%",
+            color: colors.text,
+            fontSize: 15,
+            fontWeight: "600",
+            paddingVertical: 0,
+          }}
+        />
+
+        {searching ? (
+          <ActivityIndicator
+            size="small"
+            color={colors.primary}
+            style={{ marginLeft: 8 }}
+          />
+        ) : value.length > 0 ? (
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => {
+              onClear();
+              setSuggestions([]);
+            }}
+            style={{
+              width: 28,
+              height: 28,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 14,
+              backgroundColor: colors.input,
+              marginLeft: 8,
+            }}
+          >
+            <X size={13} color={colors.muted} />
+          </TouchableOpacity>
+        ) : null}
+
+        {rightAction}
+      </View>
+
+      {focused && suggestions.length > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            top: 58,
+            left: -48,
+            right: -16,
+            maxHeight: 260,
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            borderWidth: 1,
+            borderRadius: 18,
+            overflow: "hidden",
+            zIndex: 9999,
+            elevation: 16,
+            ...Platform.select({
+              ios: {
+                shadowColor: "#000000",
+                shadowOffset: {
+                  width: 0,
+                  height: 6,
+                },
+                shadowOpacity: 0.13,
+                shadowRadius: 16,
+              },
+            }),
+          }}
+        >
+          <ScrollView
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="always"
+            showsVerticalScrollIndicator={false}
+          >
+            {suggestions.slice(0, 5).map((item, index) => (
+              <TouchableOpacity
+                key={item.place_id}
+                activeOpacity={0.8}
+                onPress={() => handleSelect(item)}
+                style={{
+                  minHeight: 58,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 11,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderBottomWidth:
+                    index < Math.min(suggestions.length, 5) - 1 ? 1 : 0,
+                  borderBottomColor: colors.border,
+                }}
+              >
+                <View
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 17,
+                    backgroundColor: colors.primarySoft,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <MapPin size={15} color={colors.primary} />
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: 13,
+                      fontWeight: "700",
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.main_text}
+                  </Text>
+
+                  <Text
+                    style={{
+                      color: colors.muted,
+                      fontSize: 11,
+                      marginTop: 3,
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.secondary_text || item.description}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
+
+function PublishRouteInputCard({
+  from,
+  to,
+  onChangeFrom,
+  onChangeTo,
+  onSelectFrom,
+  onSelectTo,
+  onClearFrom,
+  onClearTo,
+  onDetectLocation,
+  isLocationLoading,
+}: {
+  from: string;
+  to: string;
+  onChangeFrom: (value: string) => void;
+  onChangeTo: (value: string) => void;
+  onSelectFrom: (place: PickedPlace) => void;
+  onSelectTo: (place: PickedPlace) => void;
+  onClearFrom: () => void;
+  onClearTo: () => void;
+  onDetectLocation: () => void;
+  isLocationLoading: boolean;
+}) {
+  const { colors } = useAppTheme();
+
+  return (
+    <View
+      style={{
+        backgroundColor: colors.card,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: 24,
+        zIndex: 100,
+        elevation: 5,
+      }}
+    >
+      {/* Pickup row */}
+      <View
+        style={{
+          minHeight: 58,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          zIndex: 110,
+        }}
+      >
+        <View
+          style={{
+            width: 20,
+            alignItems: "center",
+            marginRight: 12,
+          }}
+        >
+          <View
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              backgroundColor: colors.primary,
+            }}
+          />
+        </View>
+
+        <ConnectedPlaceInput
+          value={from}
+          placeholder="Pickup location"
+          onChangeText={onChangeFrom}
+          onSelectPlace={onSelectFrom}
+          onClear={onClearFrom}
+          rightAction={
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={onDetectLocation}
+              disabled={isLocationLoading}
+              style={{
+                width: 34,
+                height: 34,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 17,
+                backgroundColor: colors.primarySoft,
+                marginLeft: 8,
+                opacity: isLocationLoading ? 0.65 : 1,
+              }}
+            >
+              {isLocationLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <LocateFixed size={17} color={colors.primary} />
+              )}
+            </TouchableOpacity>
+          }
+        />
+      </View>
+
+      {/* Dashed route connector */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 25.5,
+          top: 39,
+          bottom: 39,
+          width: 1,
+          borderLeftWidth: 1,
+          borderLeftColor: colors.border,
+          borderStyle: "dashed",
+          zIndex: 1,
+        }}
+      />
+
+      {/* Destination row */}
+      <View
+        style={{
+          minHeight: 58,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          zIndex: 90,
+        }}
+      >
+        <View
+          style={{
+            width: 20,
+            alignItems: "center",
+            marginRight: 12,
+          }}
+        >
+          <View
+            style={{
+              width: 12,
+              height: 12,
+              borderRadius: 6,
+              borderWidth: 2,
+              borderColor: colors.primary,
+              backgroundColor: colors.card,
+            }}
+          />
+        </View>
+
+        <ConnectedPlaceInput
+          value={to}
+          placeholder="Destination"
+          onChangeText={onChangeTo}
+          onSelectPlace={onSelectTo}
+          onClear={onClearTo}
+        />
+      </View>
     </View>
   );
 }

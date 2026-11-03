@@ -1,11 +1,11 @@
 import { API_URL } from "@/config/apiConfig";
-import { logger } from "@/lib/logger";
 import {
   clearAuthTokens,
   getAccessToken,
   getRefreshToken,
   saveAuthTokens,
 } from "@/lib/storage";
+import { APIlogger } from "./logger";
 
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -141,7 +141,7 @@ export async function apiClient(
     delete fetchOptions.body;
   }
 
-  logger.request(url, options.method || "GET", getBodyForLog(options));
+  APIlogger.request(url, options.method || "GET", getBodyForLog(options));
 
   const response = await fetch(url, fetchOptions);
   const data = await parseResponse(response);
@@ -150,7 +150,7 @@ export async function apiClient(
     const newAccessToken = await refreshAccessToken();
 
     if (!newAccessToken) {
-      logger.error(url, {
+      APIlogger.error(url, {
         status: response.status,
         data,
       });
@@ -165,7 +165,7 @@ export async function apiClient(
   }
 
   if (!response.ok) {
-    logger.error(url, {
+    APIlogger.error(url, {
       status: response.status,
       data,
     });
@@ -173,7 +173,7 @@ export async function apiClient(
     throw new Error(data?.message || "Something went wrong");
   }
 
-  logger.response(url, data);
+  APIlogger.response(url, data);
 
   return data;
 }

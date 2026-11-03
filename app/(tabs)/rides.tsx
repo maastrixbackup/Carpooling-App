@@ -1,5 +1,7 @@
 import { RideCard } from "@/components/ride/RideCard";
 import { shortAddress } from "@/hooks/address-trimmer";
+import * as Location from "expo-location";
+import { LocateFixed } from "lucide-react-native";
 import {
   getPlaceDetails,
   PlaceSuggestion,
@@ -10,14 +12,13 @@ import { useAppTheme } from "@/theme/ThemeProvider";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpDown,
-  CalendarDays,
   Car,
   Check,
   MapPin,
   Search,
   SlidersHorizontal,
   Users,
-  X,
+  X
 } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -30,12 +31,17 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
-const filters = ["All", "Today", "Tomorrow", "This Week"];
+// ─── Types & constants ────────────────────────────────────────────────────────
+
+const DATE_FILTERS = ["All", "Today", "Tomorrow", "This Week"];
 type SortType = "recommended" | "price_low" | "rating_high";
 
 type PickedPlace = {
@@ -45,23 +51,18 @@ type PickedPlace = {
   longitude?: number | null;
 };
 
-function getDateByFilter(filter: string) {
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getDateByFilter(filter: string): string | undefined {
   const date = new Date();
-
-  if (filter === "Tomorrow") {
-    date.setDate(date.getDate() + 1);
-  }
-
-  if (filter !== "Today" && filter !== "Tomorrow") {
-    return undefined;
-  }
-
+  if (filter === "Tomorrow") date.setDate(date.getDate() + 1);
+  if (filter !== "Today" && filter !== "Tomorrow") return undefined;
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-
   return `${yyyy}-${mm}-${dd}`;
 }
+
 function mapApiRideToCard(ride: any) {
   const vehicle = ride.vehicles || {
     brand: ride.vehicle_brand,
@@ -70,29 +71,18 @@ function mapApiRideToCard(ride: any) {
     color: ride.vehicle_color,
     rating: ride.driver_rating,
   };
-
   return {
     id: String(ride.id),
-
     from: shortAddress(ride.source_address),
     to: shortAddress(ride.destination_address),
-
     date: ride.ride_date,
     time: ride.departure_time,
-
-    price: Number(
-      ride.price_per_km ||
-      ride.price_per_seat ||
-      0,
-    ),
-
+    price: Number(ride.price_per_km || ride.price_per_seat || 0),
     seats: Number(ride.available_seats || 0),
     driver: ride.driver_name || "Driver",
     rating: Number(ride.driver_rating || 0),
     total_rides: Number(ride.driver_total_rides || 0),
-    car:
-      `${vehicle.brand || ""} ${vehicle.model || ""}`.trim() ||
-      "Vehicle",
+    car: `${vehicle.brand || ""} ${vehicle.model || ""}`.trim() || "Vehicle",
     pickup: shortAddress(ride.source_address).split(",")[0],
     drop: shortAddress(ride.destination_address),
     pickupCoordinate: {
@@ -103,21 +93,21 @@ function mapApiRideToCard(ride: any) {
       latitude: Number(ride.destination_lat),
       longitude: Number(ride.destination_lng),
     },
-    bookingDistanceKm: Number(
-      ride.booking_distance_km || 0,
-    ),
+    bookingDistanceKm: Number(ride.booking_distance_km || 0),
     matchType: ride.match_type || "full_route",
     isVerified: Boolean(ride.is_verified),
     profilePicture: ride.profile_picture || null,
     vehicleColor: vehicle.color || null,
-    vehicleRegistration:
-      vehicle.registration_number || null,
+    vehicleRegistration: vehicle.registration_number || null,
   };
 }
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function RidesScreen() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+
   const [activeFilter, setActiveFilter] = useState("All");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [minSeats, setMinSeats] = useState(1);
@@ -125,7 +115,6 @@ export default function RidesScreen() {
 
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-
   const [fromPlace, setFromPlace] = useState<PickedPlace>({ address: "" });
   const [toPlace, setToPlace] = useState<PickedPlace>({ address: "" });
 
@@ -164,49 +153,29 @@ export default function RidesScreen() {
   });
 
   const rides = useMemo(() => {
-    const apiRides = data?.data?.rides || [];
-    const mapped = apiRides.map(mapApiRideToCard);
-
-    if (sortType === "price_low") {
+    const mapped = (data?.data?.rides || []).map(mapApiRideToCard);
+    if (sortType === "price_low")
       return [...mapped].sort((a: any, b: any) => a.price - b.price);
-    }
-
-    if (sortType === "rating_high") {
+    if (sortType === "rating_high")
       return [...mapped].sort((a: any, b: any) => b.rating - a.rating);
-    }
-
     return mapped;
   }, [data, sortType]);
 
   const totalSeats = useMemo(
-    () => rides.reduce((sum: number, ride: any) => sum + ride.seats, 0),
+    () => rides.reduce((sum: number, r: any) => sum + r.seats, 0),
     [rides],
   );
 
-  const cheapestRide = useMemo(() => {
-    if (!rides.length) return null;
-    return rides.reduce((min: any, ride: any) =>
-      ride.price < min.price ? ride : min,
-    );
-  }, [rides]);
+  const cheapestRide = useMemo(
+    () =>
+      rides.length
+        ? rides.reduce((min: any, r: any) => (r.price < min.price ? r : min))
+        : null,
+    [rides],
+  );
 
-  const handleRefresh = async () => {
-    try {
-      await refetch();
-    } catch {
-      toast.error("Unable to refresh rides.");
-    }
-  };
-
-  const clearFrom = () => {
-    setFrom("");
-    setFromPlace({ address: "" });
-  };
-
-  const clearTo = () => {
-    setTo("");
-    setToPlace({ address: "" });
-  };
+  const clearFrom = () => { setFrom(""); setFromPlace({ address: "" }); };
+  const clearTo   = () => { setTo("");   setToPlace({ address: "" });   };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -217,7 +186,9 @@ export default function RidesScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={
-            <RefreshControl refreshing={isFetching} onRefresh={handleRefresh} />
+            <RefreshControl refreshing={isFetching} onRefresh={async () => {
+              try { await refetch(); } catch { toast.error("Unable to refresh rides."); }
+            }} />
           }
           contentContainerStyle={{
             paddingHorizontal: 20,
@@ -226,8 +197,10 @@ export default function RidesScreen() {
           }}
           ListHeaderComponent={
             <>
-              <Header />
+              {/* ── Page header ── */}
+              <PageHeader />
 
+              {/* ── Search panel with route connector ── */}
               <SearchPanel
                 from={from}
                 to={to}
@@ -237,66 +210,99 @@ export default function RidesScreen() {
                 setToPlace={setToPlace}
                 clearFrom={clearFrom}
                 clearTo={clearTo}
-                activeFilter={activeFilter}
-                setActiveFilter={setActiveFilter}
                 onOpenFilters={() => setFilterModalVisible(true)}
               />
 
-              <View className="mt-6 flex-row gap-3">
-                <SummaryCard
-                  icon={<MapPin size={17} color={colors.primary} />}
-                  label="Routes"
-                  value={`${rides.length}`}
+              {/* ── Date filter chips — bare horizontal scroll ── */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginTop: 12 }}
+                contentContainerStyle={{ gap: 8, paddingHorizontal: 0 }}
+              >
+                {DATE_FILTERS.map((item) => {
+                  const active = activeFilter === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      activeOpacity={0.8}
+                      onPress={() => setActiveFilter(item)}
+                      style={{
+                        backgroundColor: active ? colors.primary : colors.card,
+                        borderColor: active ? colors.primary : colors.border,
+                      }}
+                      className="flex-row items-center gap-1.5 rounded-full border px-4 py-2"
+                    >
+                      {active && <Check size={12} color="#fff" strokeWidth={3} />}
+                      <Text
+                        style={{ color: active ? "#fff" : colors.muted }}
+                        className="text-xs font-bold"
+                      >
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* ── Stats row ── */}
+              <View
+                style={{ borderColor: colors.border }}
+                className="mt-5 flex-row rounded-2xl border overflow-hidden"
+              >
+                <StatCell
+                  label="Rides"
+                  value={String(rides.length)}
+                  accent={colors.primary}
+                  border={false}
                 />
-                <SummaryCard
-                  icon={<Users size={17} color={colors.success} />}
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <StatCell
                   label="Seats"
-                  value={`${totalSeats}`}
+                  value={String(totalSeats)}
+                  accent={colors.success}
+                  border={false}
                 />
-                <SummaryCard
-                  icon={<Car size={17} color={colors.primary} />}
-                  label="From"
+                <View style={{ width: 1, backgroundColor: colors.border }} />
+                <StatCell
+                  label="Starts From"
                   value={cheapestRide ? `₹${cheapestRide.price}` : "—"}
+                  accent={colors.primary}
+                  border={false}
                 />
               </View>
 
-              <View className="mt-7 flex-row items-center justify-between">
+              {/* ── Section header ── */}
+              <View className="mt-6 flex-row items-center justify-between">
                 <View>
                   <Text
                     style={{ color: colors.text }}
-                    className="text-xl font-extrabold"
+                    className="text-lg font-extrabold"
                   >
                     Available Rides
                   </Text>
-
-                  <Text style={{ color: colors.muted }} className="mt-1 text-xs">
+                  <Text style={{ color: colors.muted }} className="mt-0.5 text-xs">
                     {isLoading
-                      ? "Loading rides..."
-                      : `${rides.length} matching ride${rides.length === 1 ? "" : "s"
-                      } found`}
+                      ? "Searching…"
+                      : `${rides.length} ride${rides.length === 1 ? "" : "s"} found`}
                   </Text>
                 </View>
 
                 <TouchableOpacity
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                   onPress={() => setFilterModalVisible(true)}
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                  }}
+                  style={{ backgroundColor: colors.card, borderColor: colors.border }}
                   className="flex-row items-center gap-2 rounded-full border px-4 py-2"
                 >
-                  <ArrowUpDown size={15} color={colors.primary} />
-                  <Text
-                    style={{ color: colors.primary }}
-                    className="text-xs font-extrabold"
-                  >
+                  <ArrowUpDown size={14} color={colors.primary} />
+                  <Text style={{ color: colors.primary }} className="text-xs font-bold">
                     Sort
                   </Text>
                 </TouchableOpacity>
               </View>
             </>
           }
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           renderItem={({ item }) => <RideCard ride={item} />}
           ListEmptyComponent={isLoading ? <LoadingState /> : <EmptyState />}
         />
@@ -314,37 +320,32 @@ export default function RidesScreen() {
   );
 }
 
-function Header() {
+// ─── Page header ──────────────────────────────────────────────────────────────
+
+function PageHeader() {
   const { colors } = useAppTheme();
-
   return (
-    <View className="flex-row items-center justify-between">
+    <View className="mb-5 flex-row items-start justify-between">
       <View className="flex-1">
-        <Text style={{ color: colors.muted }} className="text-sm font-semibold">
-          Explore routes
+        <Text style={{ color: colors.muted }} className="text-xs font-semibold uppercase tracking-widest">
+          Carpooling
         </Text>
-
-        <Text
-          style={{ color: colors.text }}
-          className="mt-1 text-3xl font-extrabold"
-        >
-          Search Rides
-        </Text>
-
-        <Text style={{ color: colors.muted }} className="mt-2 text-sm">
-          Find verified rides around your route.
+        <Text style={{ color: colors.text }} className="mt-1 text-3xl font-extrabold tracking-tight">
+          Find a Ride
         </Text>
       </View>
-
       <View
         style={{ backgroundColor: colors.primarySoft }}
-        className="h-12 w-12 items-center justify-center rounded-full"
+        className="mt-1 h-11 w-11 items-center justify-center rounded-full"
       >
-        <Car size={22} color={colors.primary} />
+        <Car size={20} color={colors.primary} />
       </View>
     </View>
   );
 }
+
+// ─── Search panel ─────────────────────────────────────────────────────────────
+// Signature element: From→To connected by a vertical dotted route line
 
 function SearchPanel({
   from,
@@ -355,20 +356,16 @@ function SearchPanel({
   setToPlace,
   clearFrom,
   clearTo,
-  activeFilter,
-  setActiveFilter,
   onOpenFilters,
 }: {
   from: string;
   to: string;
-  setFrom: (value: string) => void;
-  setTo: (value: string) => void;
-  setFromPlace: (place: PickedPlace) => void;
-  setToPlace: (place: PickedPlace) => void;
+  setFrom: (v: string) => void;
+  setTo: (v: string) => void;
+  setFromPlace: (p: PickedPlace) => void;
+  setToPlace: (p: PickedPlace) => void;
   clearFrom: () => void;
   clearTo: () => void;
-  activeFilter: string;
-  setActiveFilter: (value: string) => void;
   onOpenFilters: () => void;
 }) {
   const { colors } = useAppTheme();
@@ -376,159 +373,133 @@ function SearchPanel({
   return (
     <View
       style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-6 rounded-[32px] border p-4"
+      className="rounded-[28px] border overflow-hidden"
     >
-      <PlaceInput
-        icon={<MapPin size={18} color={colors.primary} />}
-        label="From"
-        value={from}
-        placeholder="Choose pickup location"
-        onChangeText={(value) => {
-          setFrom(value);
-          setFromPlace({ address: value });
-        }}
-        onClear={clearFrom}
-        onSelectPlace={(place) => {
-          setFrom(place.address);
-          setFromPlace(place);
-        }}
-      />
-
-      <View className="mt-3 flex-row gap-3">
-        <View className="flex-1">
-          <PlaceInput
-            icon={<Search size={18} color={colors.success} />}
-            label="To"
-            value={to}
-            placeholder="Choose destination"
-            onChangeText={(value) => {
-              setTo(value);
-              setToPlace({ address: value });
-            }}
-            onClear={clearTo}
-            onSelectPlace={(place) => {
-              setTo(place.address);
-              setToPlace(place);
-            }}
+      {/* From row */}
+      <View
+        style={{ borderBottomColor: colors.border }}
+        className="flex-row items-center border-b px-4"
+        // Fixed height — no stacked label, just one clean row
+      >
+        {/* Route connector — origin dot */}
+        <View className="mr-3 items-center" style={{ width: 20 }}>
+          <View
+            style={{ backgroundColor: colors.primary }}
+            className="h-3 w-3 rounded-full"
           />
         </View>
 
+        <PlaceInput
+          value={from}
+          placeholder="Pickup location"
+          onChangeText={(v) => { setFrom(v); setFromPlace({ address: v }); }}
+          onClear={clearFrom}
+          onSelectPlace={(p) => { setFrom(p.address); setFromPlace(p); }}
+        />
+      </View>
+
+      {/* Connector line between rows */}
+      <View
+        style={{
+          position: "absolute",
+          left: 29,           // center of the 20px icon column + 4px px padding
+          top: 45,            // below origin dot
+          bottom: 45,         // above destination dot
+          width: 1,
+          borderLeftWidth: 1,
+          borderLeftColor: colors.border,
+          borderStyle: "dashed",
+        }}
+        pointerEvents="none"
+      />
+
+      {/* To row + filter button */}
+      <View className="flex-row items-center px-4">
+        <View className="mr-3 items-center" style={{ width: 20 }}>
+          <View
+            style={{ borderColor: colors.primary, borderWidth: 2 }}
+            className="h-3 w-3 rounded-full"
+          />
+        </View>
+
+        <View className="flex-1">
+          <PlaceInput
+            value={to}
+            placeholder="Destination"
+            onChangeText={(v) => { setTo(v); setToPlace({ address: v }); }}
+            onClear={clearTo}
+            onSelectPlace={(p) => { setTo(p.address); setToPlace(p); }}
+          />
+        </View>
+
+        {/* Filter button lives at the right edge of the To row */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={onOpenFilters}
           style={{ backgroundColor: colors.primary }}
-          className="h-14 w-14 items-center justify-center rounded-2xl"
+          className="ml-3 h-10 w-10 items-center justify-center rounded-2xl"
         >
-          <SlidersHorizontal size={22} color="#FFFFFF" />
+          <SlidersHorizontal size={18} color="#fff" />
         </TouchableOpacity>
       </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mt-4"
-        contentContainerStyle={{ gap: 8 }}
-      >
-        {filters.map((item) => {
-          const active = activeFilter === item;
-
-          return (
-            <TouchableOpacity
-              key={item}
-              activeOpacity={0.85}
-              onPress={() => setActiveFilter(item)}
-              style={{
-                backgroundColor: active ? colors.primary : colors.input,
-                borderColor: active ? colors.primary : colors.border,
-              }}
-              className="flex-row items-center gap-2 rounded-full border px-4 py-2"
-            >
-              {active && <Check size={13} color="#FFFFFF" />}
-
-              <Text
-                style={{ color: active ? "#FFFFFF" : colors.text }}
-                className="text-xs font-extrabold"
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
     </View>
   );
 }
 
+// ─── PlaceInput — single-line, no stacked label ───────────────────────────────
+
 function PlaceInput({
-  icon,
-  label,
   value,
   placeholder,
   onChangeText,
   onSelectPlace,
   onClear,
 }: {
-  icon: React.ReactNode;
-  label: string;
   value: string;
   placeholder: string;
-  onChangeText: (value: string) => void;
-  onSelectPlace: (place: PickedPlace) => void;
+  onChangeText: (v: string) => void;
+  onSelectPlace: (p: PickedPlace) => void;
   onClear: () => void;
 }) {
   const { colors } = useAppTheme();
-
   const [focused, setFocused] = useState(false);
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
 
   useEffect(() => {
     let mounted = true;
-
     const timer = setTimeout(async () => {
       try {
         if (!focused || value.trim().length < 2) {
           if (mounted) setSuggestions([]);
           return;
         }
-
         setSearching(true);
         const results = await searchIndiaPlaces(value);
-
-        if (mounted) {
-          setSuggestions(results);
-        }
-      } catch (error) {
-        console.log("PLACE SEARCH ERROR:", error);
+        if (mounted) setSuggestions(results);
+      } catch {
+        // silent
       } finally {
         if (mounted) setSearching(false);
       }
     }, 350);
-
-    return () => {
-      mounted = false;
-      clearTimeout(timer);
-    };
+    return () => { mounted = false; clearTimeout(timer); };
   }, [value, focused]);
 
   const handleSelect = async (place: PlaceSuggestion) => {
     try {
       setSearching(true);
-
       const details = await getPlaceDetails(place.place_id);
-
       onSelectPlace({
         address: details.address,
         placeId: details.placeId,
         latitude: details.latitude,
         longitude: details.longitude,
       });
-
       setSuggestions([]);
       setFocused(false);
       Keyboard.dismiss();
-    } catch (error) {
-      console.log("PLACE DETAILS ERROR:", error);
+    } catch {
       toast.error("Unable to select this location.");
     } finally {
       setSearching(false);
@@ -536,83 +507,66 @@ function PlaceInput({
   };
 
   return (
-    <View>
-      <View
-        style={{ backgroundColor: colors.input }}
-        className="min-h-[56px] flex-row items-center gap-3 rounded-2xl px-4 py-3"
-      >
-        {icon}
+    <View className="flex-1">
+      {/* Input row — slim single-line height */}
+      <View className="h-[52px] flex-row items-center">
+        <TextInput
+          value={value}
+          onFocus={() => setFocused(true)}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          autoCorrect={false}
+          style={{ color: colors.text, flex: 1 }}
+          className="text-[15px] font-semibold"
+        />
 
-        <View className="flex-1">
-          <Text style={{ color: colors.muted }} className="mb-1 text-xs font-bold uppercase">
-            {label}
-          </Text>
-
-          <TextInput
-            value={value}
-            onFocus={() => setFocused(true)}
-            onChangeText={onChangeText}
-            placeholder={placeholder}
-            placeholderTextColor={colors.muted}
-            autoCorrect={false}
-            style={{ color: colors.text }}
-            className="text-base font-semibold"
-          />
-        </View>
-
-        {searching && <ActivityIndicator size="small" color={colors.primary} />}
+        {searching && (
+          <ActivityIndicator size="small" color={colors.primary} style={{ marginLeft: 8 }} />
+        )}
 
         {value.length > 0 && !searching && (
           <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              onClear();
-              setSuggestions([]);
-            }}
-            className="h-9 w-9 items-center justify-center rounded-full"
-            style={{ backgroundColor: colors.card }}
+            activeOpacity={0.75}
+            onPress={() => { onClear(); setSuggestions([]); }}
+            style={{ backgroundColor: colors.input }}
+            className="ml-2 h-7 w-7 items-center justify-center rounded-full"
           >
-            <X size={16} color={colors.muted} />
+            <X size={13} color={colors.muted} />
           </TouchableOpacity>
         )}
       </View>
 
+      {/* Suggestions dropdown */}
       {focused && suggestions.length > 0 && (
         <View
-          style={{
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          }}
-          className="mt-2 overflow-hidden rounded-2xl border"
+          style={{ backgroundColor: colors.card, borderColor: colors.border }}
+          className="absolute left-0 right-0 top-[52px] z-50 overflow-hidden rounded-2xl border shadow-sm"
         >
-          {suggestions.map((item) => (
+          {suggestions.map((item, index) => (
             <TouchableOpacity
               key={item.place_id}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
               onPress={() => handleSelect(item)}
-              style={{ borderBottomColor: colors.border }}
-              className="flex-row items-start gap-3 border-b px-4 py-3"
+              style={{
+                borderBottomColor: colors.border,
+                borderBottomWidth: index < suggestions.length - 1 ? 1 : 0,
+              }}
+              className="flex-row items-start gap-3 px-4 py-3"
             >
-              <View
-                style={{ backgroundColor: colors.primarySoft }}
-                className="mt-0.5 h-9 w-9 items-center justify-center rounded-full"
-              >
-                <MapPin size={16} color={colors.primary} />
-              </View>
-
+              <MapPin size={14} color={colors.primary} style={{ marginTop: 2 }} />
               <View className="flex-1">
                 <Text
                   style={{ color: colors.text }}
-                  className="font-extrabold"
+                  className="text-[13px] font-bold"
                   numberOfLines={1}
                 >
                   {item.main_text}
                 </Text>
-
                 <Text
                   style={{ color: colors.muted }}
-                  className="mt-1 text-xs font-semibold"
-                  numberOfLines={2}
+                  className="mt-0.5 text-xs"
+                  numberOfLines={1}
                 >
                   {item.secondary_text || item.description}
                 </Text>
@@ -625,55 +579,44 @@ function PlaceInput({
   );
 }
 
-function SummaryCard({
-  icon,
+// ─── Stat cell ────────────────────────────────────────────────────────────────
+
+function StatCell({
   label,
   value,
+  accent,
+  border,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
+  accent: string;
+  border: boolean;
 }) {
   const { colors } = useAppTheme();
-
   return (
     <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="flex-1 rounded-[24px] border p-4"
+      style={{ backgroundColor: colors.card }}
+      className="flex-1 items-center py-3"
     >
-      <View className="flex-row items-center gap-2">
-        {icon}
-        <Text
-          style={{ color: colors.muted }}
-          className="text-[11px] font-bold"
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
-      </View>
-
-      <Text
-        style={{ color: colors.text }}
-        className="mt-2 text-2xl font-extrabold"
-        numberOfLines={1}
-      >
+      <Text style={{ color: accent }} className="text-xl font-extrabold">
         {value}
+      </Text>
+      <Text style={{ color: colors.muted }} className="mt-0.5 text-[11px] font-semibold">
+        {label}
       </Text>
     </View>
   );
 }
 
+// ─── Loading / empty states ────────────────────────────────────────────────────
+
 function LoadingState() {
   const { colors } = useAppTheme();
-
   return (
-    <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-4 items-center rounded-[30px] border p-8"
-    >
+    <View className="mt-4 items-center py-12">
       <ActivityIndicator color={colors.primary} />
-      <Text style={{ color: colors.muted }} className="mt-3 text-sm font-bold">
-        Loading rides...
+      <Text style={{ color: colors.muted }} className="mt-3 text-sm font-semibold">
+        Searching rides…
       </Text>
     </View>
   );
@@ -681,27 +624,28 @@ function LoadingState() {
 
 function EmptyState() {
   const { colors } = useAppTheme();
-
   return (
-    <View
-      style={{ backgroundColor: colors.card, borderColor: colors.border }}
-      className="mt-4 items-center rounded-[30px] border p-8"
-    >
-      <Search size={34} color={colors.muted} />
-
-      <Text
-        style={{ color: colors.text }}
-        className="mt-4 text-lg font-extrabold"
+    <View className="mt-4 items-center py-14">
+      <View
+        style={{ backgroundColor: colors.card, borderColor: colors.border }}
+        className="mb-5 h-16 w-16 items-center justify-center rounded-full border"
       >
+        <Search size={28} color={colors.muted} />
+      </View>
+      <Text style={{ color: colors.text }} className="text-base font-extrabold">
         No rides found
       </Text>
-
-      <Text style={{ color: colors.muted }} className="mt-2 text-center text-sm">
-        Try changing your route, date, or seat filter.
+      <Text
+        style={{ color: colors.muted }}
+        className="mt-2 max-w-[220px] text-center text-sm leading-5"
+      >
+        Try a different route, date, or fewer required seats.
       </Text>
     </View>
   );
 }
+
+// ─── Filter modal ─────────────────────────────────────────────────────────────
 
 function FilterModal({
   visible,
@@ -719,107 +663,130 @@ function FilterModal({
   onClose: () => void;
 }) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
 
-  const sortOptions: { label: string; value: SortType }[] = [
-    { label: "Recommended", value: "recommended" },
-    { label: "Lowest price", value: "price_low" },
-    { label: "Highest rating", value: "rating_high" },
+  const sortOptions: { label: string; value: SortType; sub: string }[] = [
+    { label: "Recommended", value: "recommended", sub: "Best match for your route" },
+    { label: "Lowest price", value: "price_low", sub: "Cheapest rides first" },
+    { label: "Highest rated", value: "rating_high", sub: "Top-rated drivers first" },
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View className="flex-1 justify-end bg-black/60">
         <View
-          style={{ backgroundColor: colors.card, borderColor: colors.border }}
-          className="rounded-t-[34px] border px-5 pb-8 pt-5"
+          style={{
+            backgroundColor: colors.card,
+            borderColor: colors.border,
+            paddingBottom: Math.max(insets.bottom, 20),
+          }}
+          className="rounded-t-[32px] border-l border-r border-t px-5 pt-4"
         >
-          <View className="mb-5 flex-row items-center justify-between">
-            <View>
-              <Text style={{ color: colors.text }} className="text-xl font-extrabold">
-                Filters
-              </Text>
-              <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-                Refine rides by seats and sorting.
-              </Text>
-            </View>
+          {/* Handle */}
+          <View className="mb-4 items-center">
+            <View style={{ backgroundColor: colors.border }} className="h-1 w-10 rounded-full" />
+          </View>
 
+          {/* Header */}
+          <View className="mb-5 flex-row items-center justify-between">
+            <Text style={{ color: colors.text }} className="text-xl font-extrabold">
+              Filters
+            </Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={onClose}
               style={{ backgroundColor: colors.input }}
-              className="h-10 w-10 items-center justify-center rounded-full"
+              className="h-9 w-9 items-center justify-center rounded-full"
             >
-              <X size={18} color={colors.text} />
+              <X size={16} color={colors.text} />
             </TouchableOpacity>
           </View>
 
-          <View style={{ backgroundColor: colors.input }} className="rounded-3xl p-4">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-2">
-                <Users size={18} color={colors.primary} />
-                <Text style={{ color: colors.text }} className="font-extrabold">
-                  Minimum Seats
-                </Text>
-              </View>
+          {/* Minimum seats */}
+          <Text
+            style={{ color: colors.muted }}
+            className="mb-3 text-xs font-bold uppercase tracking-widest"
+          >
+            Minimum seats
+          </Text>
 
-              <Text style={{ color: colors.primary }} className="font-extrabold">
-                {minSeats}
+          <View
+            style={{ backgroundColor: colors.input, borderColor: colors.border }}
+            className="mb-6 flex-row items-center justify-between rounded-2xl border px-4 py-3"
+          >
+            <View className="flex-row items-center gap-2">
+              <Users size={17} color={colors.primary} />
+              <Text style={{ color: colors.text }} className="font-semibold">
+                {minSeats} seat{minSeats > 1 ? "s" : ""}
               </Text>
             </View>
 
-            <View className="mt-4 flex-row gap-3">
+            <View className="flex-row items-center gap-3">
               <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setMinSeats((prev) => Math.max(1, prev - 1))}
-                style={{ backgroundColor: colors.card }}
-                className="h-12 flex-1 items-center justify-center rounded-2xl"
+                activeOpacity={0.8}
+                onPress={() => setMinSeats((p) => Math.max(1, p - 1))}
+                style={{ backgroundColor: colors.card, borderColor: colors.border }}
+                className="h-9 w-9 items-center justify-center rounded-full border"
               >
-                <Text style={{ color: colors.text }} className="text-xl font-bold">
-                  −
-                </Text>
+                <Text style={{ color: colors.text }} className="text-lg font-bold">−</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setMinSeats((prev) => Math.min(6, prev + 1))}
+                activeOpacity={0.8}
+                onPress={() => setMinSeats((p) => Math.min(6, p + 1))}
                 style={{ backgroundColor: colors.primary }}
-                className="h-12 flex-1 items-center justify-center rounded-2xl"
+                className="h-9 w-9 items-center justify-center rounded-full"
               >
-                <Text className="text-xl font-bold text-white">+</Text>
+                <Text className="text-lg font-bold text-white">+</Text>
               </TouchableOpacity>
             </View>
           </View>
 
+          {/* Sort options */}
           <Text
             style={{ color: colors.muted }}
-            className="mb-3 mt-5 text-xs font-extrabold uppercase tracking-wider"
+            className="mb-3 text-xs font-bold uppercase tracking-widest"
           >
             Sort by
           </Text>
 
-          <View className="gap-3">
+          <View className="gap-2 mb-5">
             {sortOptions.map((item) => {
               const selected = sortType === item.value;
-
               return (
                 <TouchableOpacity
                   key={item.value}
-                  activeOpacity={0.85}
+                  activeOpacity={0.8}
                   onPress={() => setSortType(item.value)}
                   style={{
                     backgroundColor: selected ? colors.primarySoft : colors.input,
-                    borderColor: selected ? colors.primary : colors.border,
+                    borderColor: selected ? colors.primary : "transparent",
                   }}
-                  className="flex-row items-center justify-between rounded-2xl border px-4 py-4"
+                  className="flex-row items-center gap-3 rounded-2xl border px-4 py-3.5"
                 >
-                  <View className="flex-row items-center gap-3">
-                    <CalendarDays size={18} color={colors.primary} />
-                    <Text style={{ color: colors.text }} className="font-extrabold">
+                  <View className="flex-1">
+                    <Text
+                      style={{ color: selected ? colors.primary : colors.text }}
+                      className="text-[14px] font-bold"
+                    >
                       {item.label}
                     </Text>
+                    <Text style={{ color: colors.muted }} className="mt-0.5 text-xs">
+                      {item.sub}
+                    </Text>
                   </View>
-
-                  {selected && <Check size={18} color={colors.primary} />}
+                  {selected && (
+                    <View
+                      style={{ backgroundColor: colors.primary }}
+                      className="h-5 w-5 items-center justify-center rounded-full"
+                    >
+                      <Check size={12} color="#fff" strokeWidth={3} />
+                    </View>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -829,10 +796,10 @@ function FilterModal({
             activeOpacity={0.85}
             onPress={onClose}
             style={{ backgroundColor: colors.primary }}
-            className="mt-5 rounded-2xl py-4"
+            className="rounded-2xl py-4"
           >
-            <Text className="text-center font-extrabold text-white">
-              Apply Filters
+            <Text className="text-center text-[15px] font-extrabold text-white">
+              Apply
             </Text>
           </TouchableOpacity>
         </View>

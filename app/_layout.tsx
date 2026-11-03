@@ -14,7 +14,7 @@ import { Toaster } from "sonner-native";
 import "../global.css";
 import CustomSplashScreen from "../src/components/common/splashscreen";
 
-SplashScreen.preventAutoHideAsync().catch(() => { });
+SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
   const { isDark, colors } = useAppTheme();
@@ -30,10 +30,19 @@ function AppContent() {
     });
   }, [isAuthenticated, user?.id]);
 
-  if (isLoading || !isSplashTimingComplete) {
+  const showSplash = isLoading || !isSplashTimingComplete;
+
+  if (showSplash) {
     return (
       <CustomSplashScreen
-        onFinish={() => setIsSplashTimingComplete(true)}
+        onFinish={async () => {
+          setIsSplashTimingComplete(true);
+          try {
+            await SplashScreen.hideAsync();
+          } catch (e) {
+            console.warn("Failed to hide native splash:", e);
+          }
+        }}
       />
     );
   }

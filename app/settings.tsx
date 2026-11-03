@@ -1,6 +1,10 @@
 import { APP_INFO } from "@/config/appInfo";
 import { useAuth } from "@/context/AuthContext";
-import { cancelDeleteAccountApi, getDeleteRequestApi, requestDeleteAccountApi } from "@/services/user.service";
+import {
+  cancelDeleteAccountApi,
+  getDeleteRequestApi,
+  requestDeleteAccountApi,
+} from "@/services/user.service";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
@@ -17,19 +21,31 @@ import {
   ShieldCheck,
   Sun,
   Trash2,
-  X
+  X,
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, Switch, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
+} from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
   const { colors, isDark, toggleTheme } = useAppTheme();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-
   const queryClient = useQueryClient();
   const { logout } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const { data: deleteRequestData } = useQuery({
     queryKey: ["account-delete-request"],
@@ -42,11 +58,9 @@ export default function SettingsScreen() {
   const requestDeleteMutation = useMutation({
     mutationFn: requestDeleteAccountApi,
     onSuccess: async () => {
-      toast.success("Account deletion requested successfully.");
+      toast.success("Account deletion requested.");
       setDeleteModalVisible(false);
       await queryClient.invalidateQueries({ queryKey: ["account-delete-request"] });
-
-      // recommended
       await logout();
       router.replace("/(auth)/login");
     },
@@ -58,7 +72,7 @@ export default function SettingsScreen() {
   const cancelDeleteMutation = useMutation({
     mutationFn: cancelDeleteAccountApi,
     onSuccess: async () => {
-      toast.success("Account deletion request cancelled.");
+      toast.success("Deletion request cancelled.");
       await queryClient.invalidateQueries({ queryKey: ["account-delete-request"] });
     },
     onError: (error: any) => {
@@ -69,127 +83,190 @@ export default function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <StickyHeader />
+
+        {/* ── Header ── */}
+        <View
+          style={{ borderBottomColor: colors.border }}
+          className="flex-row items-center gap-3 border-b px-5 pb-4 pt-3"
+        >
+          <TouchableOpacity
+            activeOpacity={0.75}
+            onPress={() => router.back()}
+            style={{ backgroundColor: colors.card, borderColor: colors.border }}
+            className="h-10 w-10 items-center justify-center rounded-full border"
+          >
+            <ArrowLeft size={19} color={colors.text} />
+          </TouchableOpacity>
+
+          <Text style={{ color: colors.text }} className="flex-1 text-lg font-extrabold">
+            Settings
+          </Text>
+        </View>
+
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: Platform.OS === "android" ? 16 : 12,
-            paddingBottom: 120,
+            paddingBottom: Math.max(insets.bottom, 32) + 40,
           }}
         >
-          <View
-            style={{ backgroundColor: colors.primary }}
-            className="mt-6 overflow-hidden rounded-[34px] p-6"
-          >
-            <View className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10" />
-            <Text className="text-sm font-bold text-blue-100">Car Pooling</Text>
-            <Text className="mt-3 text-3xl font-extrabold text-white">
-              Make the app yours
-            </Text>
-            <Text className="mt-2 text-sm leading-5 text-blue-100">
-              Manage theme, alerts, privacy, and travel preferences.
-            </Text>
-          </View>
+          {/* ── Preferences ── */}
+          <SectionLabel label="Preferences" />
 
-          <Section title="Preferences">
-            <SettingRow
-              icon={isDark ? <Sun size={20} color="#FACC15" /> : <Moon size={20} color={colors.primary} />}
-              title={isDark ? "Dark Mode" : "Light Mode"}
-              subtitle="Switch app appearance"
-              right={<Switch value={isDark} onValueChange={toggleTheme} />}
-            />
+          <View style={{ backgroundColor: colors.bg }}>
+            {/* Dark mode — signature pill toggle */}
+            <View
+              style={{ borderBottomColor: colors.border }}
+              className="flex-row items-center border-b px-5 py-4"
+            >
+              <View className="flex-1 flex-row items-center gap-3">
+                {isDark
+                  ? <Moon size={19} color={colors.primary} />
+                  : <Sun size={19} color={colors.primary} />
+                }
+                <Text style={{ color: colors.text }} className="text-[15px] font-semibold">
+                  Appearance
+                </Text>
+              </View>
 
-            <SettingRow
-              icon={<Globe2 size={20} color={colors.primary} />}
+              {/* Pill toggle — the signature interaction */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={toggleTheme}
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                }}
+                className="flex-row items-center rounded-full p-1"
+              >
+                <View
+                  style={{
+                    backgroundColor: !isDark ? colors.primary : "transparent",
+                  }}
+                  className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+                >
+                  <Sun size={13} color={!isDark ? "#fff" : colors.muted} />
+                  <Text
+                    style={{ color: !isDark ? "#fff" : colors.muted }}
+                    className="text-xs font-bold"
+                  >
+                    Light
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    backgroundColor: isDark ? colors.primary : "transparent",
+                  }}
+                  className="flex-row items-center gap-1.5 rounded-full px-3 py-1.5"
+                >
+                  <Moon size={13} color={isDark ? "#fff" : colors.muted} />
+                  <Text
+                    style={{ color: isDark ? "#fff" : colors.muted }}
+                    className="text-xs font-bold"
+                  >
+                    Dark
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <Row
+              icon={<Globe2 size={19} color={colors.primary} />}
               title="Language"
-              subtitle="English"
+              value="English"
             />
 
-            <SettingRow
-              icon={<MapPin size={20} color={colors.primary} />}
+            <Row
+              icon={<MapPin size={19} color={colors.primary} />}
               title="Default Location"
               subtitle="Use current city for nearby rides"
+              last
             />
-          </Section>
+          </View>
 
+          {/* ── Account & Safety ── */}
+          <SectionLabel label="Account & Safety" />
 
-
-          <Section title="Account & Safety">
-
-            <SettingRow
-              icon={<ShieldCheck size={20} color={colors.success} />}
+          <View style={{ backgroundColor: colors.bg }}>
+            <Row
+              icon={<ShieldCheck size={19} color={colors.success} />}
               title="Safety & Verification"
               subtitle="ID checks and trusted ride settings"
             />
 
-            <SettingRow
-              icon={<Lock size={20} color={colors.primary} />}
+            <Row
+              icon={<Lock size={19} color={colors.primary} />}
               title="Privacy"
-              subtitle="Control visibility and data preferences"
+              subtitle="Visibility and data preferences"
               onPress={() => router.push("/privacy-policy" as any)}
             />
 
-            <SettingRow
-              icon={<FileText size={20} color={colors.primary} />}
+            <Row
+              icon={<FileText size={19} color={colors.primary} />}
               title="Terms & Conditions"
-              subtitle="Rules for using Car Pooling"
               onPress={() => router.push("/terms-conditions" as any)}
             />
 
-            <SettingRow
-              icon={<Info size={20} color={colors.primary} />}
-              title="About App"
-              subtitle="Version, developer, and product details"
+            <Row
+              icon={<Info size={19} color={colors.primary} />}
+              title="About"
+              value={`v${APP_INFO.version}`}
               onPress={() => router.push("/about" as any)}
-            />
-
-            <SettingRow
-              icon={<Trash2 size={20} color={hasDeletionRequest ? "#F59E0B" : colors.danger} />}
-              title={hasDeletionRequest ? "Deletion Scheduled" : "Delete Account"}
-              subtitle={
-                hasDeletionRequest
-                  ? `Scheduled on ${formatDate(deletionRequest?.scheduledDeleteAt)}`
-                  : "Request account deletion after 15 days"
-              }
-              onPress={() => setDeleteModalVisible(true)}
               last
             />
-          </Section>
+          </View>
+
+          {/* ── Danger zone — separated, no section card ── */}
           <View
-            style={{
-              borderTopColor: colors.border,
-              borderTopWidth: 1,
-            }}
-            className="mt-8 pt-5 items-center"
+            style={{ backgroundColor: colors.bg, marginTop: 32 }}
           >
-            <Text
-              style={{ color: colors.muted }}
-              className="text-xs"
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => setDeleteModalVisible(true)}
+              style={{ borderTopColor: colors.border, borderBottomColor: colors.border }}
+              className="flex-row items-center gap-3 border-b border-t px-5 py-4"
             >
-              {APP_INFO.name} v{APP_INFO.version}
-            </Text>
+              <Trash2
+                size={19}
+                color={hasDeletionRequest ? "#F59E0B" : colors.danger}
+              />
+              <View className="flex-1">
+                <Text
+                  style={{
+                    color: hasDeletionRequest ? "#F59E0B" : colors.danger,
+                  }}
+                  className="text-[15px] font-semibold"
+                >
+                  {hasDeletionRequest ? "Deletion Scheduled" : "Delete Account"}
+                </Text>
+                {hasDeletionRequest && (
+                  <Text style={{ color: colors.muted }} className="mt-0.5 text-xs">
+                    Scheduled for {formatDate(deletionRequest?.scheduledDeleteAt)}
+                  </Text>
+                )}
+              </View>
+              <ChevronRight size={17} color={hasDeletionRequest ? "#F59E0B" : colors.danger} />
+            </TouchableOpacity>
+          </View>
 
-            <Text
-              style={{ color: colors.muted }}
-              className="mt-1 text-[11px]"
-            >
-              Effective Date: {APP_INFO.effective_date}
+          {/* ── Footer ── */}
+          <View className="mt-10 items-center gap-1 px-5">
+            <Text style={{ color: colors.muted }} className="text-xs">
+              {APP_INFO.name} · v{APP_INFO.version}
             </Text>
-
-            <Text
-              style={{ color: colors.muted }}
-              className="mt-1 text-[11px]"
-            >
+            <Text style={{ color: colors.muted }} className="text-[11px]">
               © 2026 PoolShare. All rights reserved.
             </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
+
       <DeleteAccountModal
         visible={deleteModalVisible}
         deletionRequest={deletionRequest}
-        loading={requestDeleteMutation.isPending || cancelDeleteMutation.isPending}
+        loading={
+          requestDeleteMutation.isPending || cancelDeleteMutation.isPending
+        }
         onClose={() => setDeleteModalVisible(false)}
         onConfirm={() => requestDeleteMutation.mutate()}
         onCancelRequest={() => cancelDeleteMutation.mutate()}
@@ -198,39 +275,34 @@ export default function SettingsScreen() {
   );
 }
 
+// ─── Section label ─────────────────────────────────────────────────────────────
 
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionLabel({ label }: { label: string }) {
   const { colors } = useAppTheme();
-
   return (
-    <View className="mt-7">
-      <Text style={{ color: colors.text }} className="mb-3 text-lg font-extrabold">
-        {title}
-      </Text>
-
-      <View
-        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-        className="rounded-[30px] border p-2"
-      >
-        {children}
-      </View>
-    </View>
+    <Text
+      style={{ color: colors.muted }}
+      className="mt-8 mb-2 px-5 text-xs font-bold uppercase tracking-widest"
+    >
+      {label}
+    </Text>
   );
 }
 
-function SettingRow({
+// ─── Row ──────────────────────────────────────────────────────────────────────
+
+function Row({
   icon,
   title,
   subtitle,
-  right,
+  value,
   onPress,
   last,
 }: {
   icon: React.ReactNode;
   title: string;
-  subtitle: string;
-  right?: React.ReactNode;
+  subtitle?: string;
+  value?: string;
   onPress?: () => void;
   last?: boolean;
 }) {
@@ -240,31 +312,35 @@ function SettingRow({
     <TouchableOpacity
       disabled={!onPress}
       onPress={onPress}
-      activeOpacity={0.8}
+      activeOpacity={0.65}
       style={{ borderBottomColor: last ? "transparent" : colors.border }}
-      className="flex-row items-center gap-3 border-b px-3 py-4"
+      className="flex-row items-center gap-3 border-b px-5 py-4"
     >
-      <View
-        style={{ backgroundColor: colors.primarySoft }}
-        className="h-11 w-11 items-center justify-center rounded-2xl"
-      >
-        {icon}
-      </View>
+      {icon}
 
       <View className="flex-1">
-        <Text style={{ color: colors.text }} className="font-extrabold">
+        <Text style={{ color: colors.text }} className="text-[15px] font-semibold">
           {title}
         </Text>
-        <Text style={{ color: colors.muted }} className="mt-1 text-xs">
-          {subtitle}
-        </Text>
+        {subtitle ? (
+          <Text style={{ color: colors.muted }} className="mt-0.5 text-xs leading-4">
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
 
-      {right ?? <ChevronRight size={19} color={colors.muted} />}
+      {value ? (
+        <Text style={{ color: colors.muted }} className="text-xs font-semibold">
+          {value}
+        </Text>
+      ) : null}
+
+      {onPress ? <ChevronRight size={17} color={colors.muted} /> : null}
     </TouchableOpacity>
   );
 }
 
+// ─── Delete account modal ─────────────────────────────────────────────────────
 
 function DeleteAccountModal({
   visible,
@@ -287,7 +363,7 @@ function DeleteAccountModal({
 
   const hasRequest = Boolean(deletionRequest);
   const canDelete = confirmText.trim().toLowerCase() === "delete";
-  const modalMaxHeight = Math.min(height * 0.86, 720);
+  const modalMaxHeight = Math.min(height * 0.88, 740);
   const modalWidth = Math.min(width - 32, 520);
 
   useEffect(() => {
@@ -295,8 +371,17 @@ function DeleteAccountModal({
   }, [visible]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
         <View className="flex-1 items-center justify-center bg-black/75 px-4">
           <View
             style={{
@@ -307,32 +392,48 @@ function DeleteAccountModal({
             }}
             className="overflow-hidden rounded-[30px] border"
           >
+            {/* Modal header */}
             <View className="px-5 pt-5">
               <View className="flex-row items-start justify-between gap-4">
                 <View
                   style={{
-                    backgroundColor: hasRequest ? "rgba(245,158,11,0.14)" : colors.dangerSoft,
-                    height: 52,
-                    width: 52,
+                    backgroundColor: hasRequest
+                      ? "rgba(245,158,11,0.14)"
+                      : colors.dangerSoft,
+                    height: 50,
+                    width: 50,
                   }}
                   className="items-center justify-center rounded-2xl"
                 >
-                  <AlertTriangle size={26} color={hasRequest ? "#F59E0B" : colors.danger} />
+                  <AlertTriangle
+                    size={24}
+                    color={hasRequest ? "#F59E0B" : colors.danger}
+                  />
                 </View>
 
-                <TouchableOpacity activeOpacity={0.85} onPress={onClose} style={{ backgroundColor: colors.input }} className="h-10 w-10 items-center justify-center rounded-full">
-                  <X size={18} color={colors.text} />
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={onClose}
+                  style={{ backgroundColor: colors.input }}
+                  className="h-10 w-10 items-center justify-center rounded-full"
+                >
+                  <X size={17} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
-              <Text style={{ color: colors.text }} className="mt-5 text-2xl font-extrabold">
-                {hasRequest ? "Deletion Scheduled" : "Delete Account Request"}
+              <Text
+                style={{ color: colors.text }}
+                className="mt-4 text-xl font-extrabold"
+              >
+                {hasRequest ? "Deletion Scheduled" : "Delete Account"}
               </Text>
-
-              <Text style={{ color: colors.muted }} className="mt-2 text-sm leading-6">
+              <Text
+                style={{ color: colors.muted }}
+                className="mt-2 text-sm leading-6"
+              >
                 {hasRequest
-                  ? `Your account is scheduled for deletion on ${formatDate(deletionRequest?.scheduledDeleteAt)}. You can cancel this request before it is processed.`
-                  : "Your account will be scheduled for deletion after 15 days. You can contact support during this period if the request was made by mistake."}
+                  ? `Your account is scheduled for deletion on ${formatDate(deletionRequest?.scheduledDeleteAt)}. Cancel before it's processed to keep your account.`
+                  : "Your account will be queued for deletion after a 15-day waiting period. You can cancel during that window."}
               </Text>
             </View>
 
@@ -347,20 +448,19 @@ function DeleteAccountModal({
             >
               {hasRequest ? (
                 <>
-                  <DeleteInfoCard
-                    title="Current Status"
+                  <InfoBlock
+                    title="Current status"
                     items={[
                       `Status: ${deletionRequest?.status || "pending"}`,
-                      `Requested on: ${formatDate(deletionRequest?.requestedAt)}`,
-                      `Scheduled deletion: ${formatDate(deletionRequest?.scheduledDeleteAt)}`,
+                      `Requested: ${formatDate(deletionRequest?.requestedAt)}`,
+                      `Deletion date: ${formatDate(deletionRequest?.scheduledDeleteAt)}`,
                     ]}
                   />
-
-                  <DeleteInfoCard
-                    title="Cancel Request"
+                  <InfoBlock
+                    title="Cancelling will restore"
                     items={[
-                      "Your account will remain active after cancellation.",
-                      "Your profile, rides, bookings, rewards, and messages will remain available.",
+                      "Full access to your profile, rides, and messages",
+                      "Rewards, bookings, and saved vehicles",
                     ]}
                   />
 
@@ -375,57 +475,63 @@ function DeleteAccountModal({
                     className="mt-5 rounded-2xl py-4"
                   >
                     <Text className="text-center text-base font-extrabold text-white">
-                      {loading ? "Cancelling..." : "Cancel Deletion Request"}
+                      {loading ? "Cancelling…" : "Cancel Deletion Request"}
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity activeOpacity={0.85} onPress={onClose} className="mt-3 rounded-2xl py-4" style={{ backgroundColor: colors.input }}>
-                    <Text style={{ color: colors.text }} className="text-center text-base font-extrabold">
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={onClose}
+                    style={{ backgroundColor: colors.input }}
+                    className="mt-3 rounded-2xl py-4"
+                  >
+                    <Text
+                      style={{ color: colors.text }}
+                      className="text-center text-base font-extrabold"
+                    >
                       Close
                     </Text>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <DeleteInfoCard
-                    title="What will be deleted"
+                  <InfoBlock
+                    title="What gets deleted"
                     items={[
-                      "Your profile information",
-                      "Login access to the app",
+                      "Profile info and login access",
                       "Saved preferences and notification tokens",
-                      "Personal account data not required for legal or safety records",
+                      "Personal data not required for legal or safety records",
                     ]}
                   />
-
-                  <DeleteInfoCard
-                    title="What may remain"
+                  <InfoBlock
+                    title="What stays (required by law)"
                     danger
                     items={[
-                      "Completed ride history for safety, dispute, fraud prevention, and company policy",
-                      "Payment, reward, and transaction records where legally required",
-                      "Reports, complaints, or support records linked to platform safety",
-                      "Anonymized analytics that no longer directly identify you",
+                      "Completed ride history for safety and dispute records",
+                      "Payment and transaction records",
+                      "Reports or complaints linked to platform safety",
                     ]}
                   />
-
-                  <DeleteInfoCard
-                    title="Important"
+                  <InfoBlock
+                    title="Before you proceed"
                     items={[
-                      "You will be logged out after submitting the request",
-                      "You may lose access to rewards, bookings, messages, and vehicles",
-                      "This action is not immediate. The deletion process starts after the 15-day waiting period",
+                      "You'll be logged out immediately after submitting",
+                      "Deletion begins after a 15-day waiting period",
+                      "Rewards, bookings, and messages will be lost",
                     ]}
                   />
 
                   <View className="mt-2">
-                    <Text style={{ color: colors.text }} className="mb-2 font-extrabold">
-                      Type DELETE to continue
+                    <Text
+                      style={{ color: colors.text }}
+                      className="mb-2 text-sm font-extrabold"
+                    >
+                      Type DELETE to confirm
                     </Text>
-
                     <TextInput
                       value={confirmText}
                       onChangeText={setConfirmText}
-                      placeholder="Type DELETE"
+                      placeholder="DELETE"
                       placeholderTextColor={colors.muted}
                       autoCapitalize="characters"
                       autoCorrect={false}
@@ -445,17 +551,29 @@ function DeleteAccountModal({
                     onPress={onConfirm}
                     style={{
                       backgroundColor: canDelete ? colors.danger : colors.input,
-                      opacity: canDelete && !loading ? 1 : 0.6,
+                      opacity: canDelete && !loading ? 1 : 0.55,
                     }}
                     className="mt-5 rounded-2xl py-4"
                   >
-                    <Text className="text-center text-base font-extrabold" style={{ color: canDelete ? "#FFFFFF" : colors.muted }}>
-                      {loading ? "Submitting..." : "Request Account Deletion"}
+                    <Text
+                      style={{ color: canDelete ? "#FFFFFF" : colors.muted }}
+                      className="text-center text-base font-extrabold"
+                    >
+                      {loading ? "Submitting…" : "Request Deletion"}
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity activeOpacity={0.85} onPress={onClose} disabled={loading} className="mt-3 rounded-2xl py-4" style={{ backgroundColor: colors.input }}>
-                    <Text style={{ color: colors.text }} className="text-center text-base font-extrabold">
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={onClose}
+                    disabled={loading}
+                    style={{ backgroundColor: colors.input }}
+                    className="mt-3 rounded-2xl py-4"
+                  >
+                    <Text
+                      style={{ color: colors.text }}
+                      className="text-center text-base font-extrabold"
+                    >
                       Keep My Account
                     </Text>
                   </TouchableOpacity>
@@ -469,7 +587,9 @@ function DeleteAccountModal({
   );
 }
 
-function DeleteInfoCard({
+// ─── Info block (inside modal) ────────────────────────────────────────────────
+
+function InfoBlock({
   title,
   items,
   danger,
@@ -490,7 +610,7 @@ function DeleteInfoCard({
     >
       <Text
         style={{ color: danger ? colors.danger : colors.text }}
-        className="font-extrabold"
+        className="text-xs font-extrabold uppercase tracking-wider"
       >
         {title}
       </Text>
@@ -498,9 +618,7 @@ function DeleteInfoCard({
       <View className="mt-3 gap-2">
         {items.map((item) => (
           <View key={item} className="flex-row gap-2">
-            <Text style={{ color: danger ? colors.danger : colors.muted }}>
-              •
-            </Text>
+            <Text style={{ color: danger ? colors.danger : colors.muted }}>·</Text>
             <Text
               style={{ color: danger ? colors.danger : colors.muted }}
               className="flex-1 text-xs leading-5"
@@ -514,63 +632,15 @@ function DeleteInfoCard({
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function formatDate(value?: string) {
-  if (!value) return "Not available";
-
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not available";
-
+  if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
-}
-
-function StickyHeader() {
-  const { colors } = useAppTheme();
-
-  return (
-    <View
-      style={{
-        backgroundColor: colors.bg,
-        borderBottomColor: colors.border,
-      }}
-      className="border-b px-5 pb-4 pt-3"
-    >
-      <View className="flex-row items-center gap-3">
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => router.back()}
-          style={{
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-          }}
-          className="h-11 w-11 items-center justify-center rounded-full border"
-        >
-          <ArrowLeft size={22} color={colors.text} />
-        </TouchableOpacity>
-
-        <View className="flex-1 items-center">
-          <Text
-            style={{ color: colors.text }}
-            className="text-lg font-extrabold"
-            numberOfLines={1}
-          >
-            Settings
-          </Text>
-
-          <Text
-            style={{ color: colors.muted }}
-            className="mt-0.5 text-xs font-semibold"
-            numberOfLines={1}
-          >
-            App preferences & account controls
-          </Text>
-        </View>
-
-        <View className="h-11 w-11" />
-      </View>
-    </View>
-  );
 }
